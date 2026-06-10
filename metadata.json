@@ -1,0 +1,6 @@
+{
+  "name": "Sun Pyramids Tours",
+  "description": "An elegant luxury Egypt travel agency landing page featuring Pyramids, Nile Cruises, tailored trips, active countdown offers, and interactive booking planners.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

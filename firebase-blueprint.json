@@ -1,0 +1,169 @@
+{
+  "entities": {
+    "Category": {
+      "title": "Category",
+      "description": "A tour category/department (e.g., recommended, nile cruises)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique category identifier" },
+        "name": { "type": "string", "description": "Display name of the category in Arabic" },
+        "slug": { "type": "string", "description": "Vite-compatible category slug" },
+        "icon": { "type": "string", "description": "Lucide icon name" }
+      },
+      "required": ["id", "name", "slug"]
+    },
+    "Tour": {
+      "title": "Tour",
+      "description": "A travel tour package/product",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "description": "Tour title" },
+        "category": { "type": "string", "description": "Slug/Id of the category this tour belongs to" },
+        "duration": { "type": "string", "description": "Duration description (e.g. '8 Days / 7 Night')" },
+        "price": { "type": "number", "description": "Current price of the tour" },
+        "image": { "type": "string", "description": "URL of the primary tour image" },
+        "cities": { "type": "string", "description": "Count or details of cities (e.g., '4 Cities')" },
+        "location": { "type": "string", "description": "Main target locations" },
+        "tags": { "type": "array", "description": "Tags of categories" },
+        "isEasterSpecial": { "type": "boolean" },
+        "isPopular": { "type": "boolean" },
+        "description": { "type": "string", "description": "Detailed description of the itinerary" }
+      },
+      "required": ["id", "title", "category", "price", "image", "duration"]
+    },
+    "Offer": {
+      "title": "Offer",
+      "description": "Special active discount and deals",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "image": { "type": "string" },
+        "cities": { "type": "string" },
+        "location": { "type": "string" },
+        "tags": { "type": "array" },
+        "duration": { "type": "string" },
+        "price": { "type": "number", "description": "Active offer price" },
+        "originalPrice": { "type": "number", "description": "Crossed-out price before discount" },
+        "badge": { "type": "string" },
+        "countdownDays": { "type": "number" }
+      },
+      "required": ["id", "title", "image", "price", "originalPrice"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "A trip booking order made by a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tourId": { "type": "string" },
+        "tourTitle": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "date": { "type": "string" },
+        "guests": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled"] },
+        "priceTotal": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "tripType": { "type": "string", "enum": ["make", "find", "rent"] },
+        "fromDate": { "type": "string" },
+        "toDate": { "type": "string" },
+        "fromLocation": { "type": "string" },
+        "toLocation": { "type": "string" }
+      },
+      "required": ["id", "fullName", "phone", "status"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile with role details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Auth UID" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["super_admin", "admin", "editor", "user"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "email", "role"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "System operational change logs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "action", "createdAt"]
+    },
+    "Media": {
+      "title": "Media",
+      "description": "Media file reference in system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "url": { "type": "string" },
+        "name": { "type": "string" },
+        "uploadedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "url", "name"]
+    },
+    "Setting": {
+      "title": "Setting",
+      "description": "General systems settings",
+      "type": "object",
+      "properties": {
+        "siteName": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "location": { "type": "string" },
+        "facebook": { "type": "string" },
+        "instagram": { "type": "string" }
+      },
+      "required": ["siteName"]
+    }
+  },
+  "firestore": {
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Listing of tour categories"
+    },
+    "/tours/{tourId}": {
+      "schema": "Tour",
+      "description": "Listing of tour packages"
+    },
+    "/offers/{offerId}": {
+      "schema": "Offer",
+      "description": "Active promotional special offers"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Tour bookings"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and RBAC assignment"
+    },
+    "/activityLogs/{logId}": {
+      "schema": "ActivityLog",
+      "description": "Admin activity action audits"
+    },
+    "/media/{mediaId}": {
+      "schema": "Media",
+      "description": "Media library assets list"
+    },
+    "/settings/{settingId}": {
+      "schema": "Setting",
+      "description": "General settings document"
+    }
+  }
+}
