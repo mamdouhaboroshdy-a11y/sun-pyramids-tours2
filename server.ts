@@ -1,9 +1,11 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
+import multer from 'multer';
 import { createServer as createViteServer } from 'vite';
-import { db } from './src/db/db';
+import { sql, eq, desc } from 'drizzle-orm';
+import { db, client } from './src/db/db';
 import * as schema from './src/db/schema';
-import { eq, desc } from 'drizzle-orm';
 
 async function startServer() {
   const app = express();
@@ -11,16 +13,174 @@ async function startServer() {
   // Falling back to 3000 for local development.
   const PORT = Number(process.env.PORT) || 3000;
 
-  // Body Parsing Middlewares
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  // Body Parsing Middlewares. Raised limits so base64 / large JSON payloads and
+  // multi-item media arrays go through without hitting the default 100kb cap.
+  app.use(express.json({ limit: '25mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
   // Helper check to see if database URL is configured
   const isPostgresConfigured = () => {
     return !!process.env.DATABASE_URL;
   };
 
-  // Static Local Data for Fallbacks if PostgreSQL is not active
+  // -----------------------------------------------------------------
+  // FILE UPLOAD STORAGE (Railway Volume)
+  // -----------------------------------------------------------------
+  // Files (images + videos) are written to a persistent directory. On Railway
+  // this should be a mounted Volume — set UPLOAD_DIR to the volume mount path
+  // (e.g. /data/uploads). Without a Volume the directory still works but its
+  // contents are wiped on every redeploy.
+  const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
+  try {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  } catch (e) {
+    console.error('[UPLOAD] Could not create upload directory:', e);
+  }
+
+  const sanitize = (name: string) =>
+    name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_{2,}/g, '_').slice(-60);
+
+  const storage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || '';
+      const base = sanitize(path.basename(file.originalname, ext)) || 'file';
+      const unique = `${Date.now()}_${Math.round(Math.random() * 1e9)}`;
+      cb(null, `${base}_${unique}${ext.toLowerCase()}`);
+    },
+  });
+
+  const upload = multer({
+    storage,
+    limits: { fileSize: 250 * 1024 * 1024 }, // 250 MB per file (videos)
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only image and video files are allowed.'));
+      }
+    },
+  });
+
+  // Serve uploaded media with long-lived caching.
+  app.use(
+    '/uploads',
+    express.static(UPLOAD_DIR, {
+      maxAge: '7d',
+      setHeaders: (res) => res.setHeader('Access-Control-Allow-Origin', '*'),
+    })
+  );
+
+  // -----------------------------------------------------------------
+  // SCHEMA BOOTSTRAP — create tables / add new columns if missing.
+  // Additive and idempotent: never drops anything. Runs once at startup
+  // when Postgres is configured.
+  // -----------------------------------------------------------------
+  const ensureSchema = async () => {
+    if (!isPostgresConfigured()) return;
+    const ddl = `
+      CREATE TABLE IF NOT EXISTS categories (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        slug TEXT NOT NULL UNIQUE,
+        icon TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS tours (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        image TEXT NOT NULL,
+        cities TEXT NOT NULL,
+        location TEXT NOT NULL,
+        tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+        duration TEXT NOT NULL,
+        price DOUBLE PRECISION NOT NULL,
+        description TEXT,
+        category TEXT,
+        is_easter_special BOOLEAN NOT NULL DEFAULT FALSE,
+        is_popular BOOLEAN NOT NULL DEFAULT FALSE
+      );
+      ALTER TABLE tours ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb;
+      ALTER TABLE tours ADD COLUMN IF NOT EXISTS videos JSONB NOT NULL DEFAULT '[]'::jsonb;
+      CREATE TABLE IF NOT EXISTS special_offers (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        image TEXT NOT NULL,
+        cities TEXT NOT NULL,
+        location TEXT NOT NULL,
+        tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+        duration TEXT NOT NULL,
+        price DOUBLE PRECISION NOT NULL,
+        original_price DOUBLE PRECISION NOT NULL,
+        badge TEXT NOT NULL,
+        countdown_days INTEGER NOT NULL
+      );
+      ALTER TABLE special_offers ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb;
+      ALTER TABLE special_offers ADD COLUMN IF NOT EXISTS videos JSONB NOT NULL DEFAULT '[]'::jsonb;
+      CREATE TABLE IF NOT EXISTS bookings (
+        id TEXT PRIMARY KEY,
+        tour_id TEXT NOT NULL,
+        tour_title TEXT NOT NULL,
+        full_name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        date TEXT NOT NULL,
+        guests INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        price_total DOUBLE PRECISION NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        trip_type TEXT,
+        from_date TEXT,
+        to_date TEXT,
+        from_location TEXT,
+        to_location TEXT
+      );
+      CREATE TABLE IF NOT EXISTS activity_logs (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        user_email TEXT NOT NULL,
+        user_name TEXT NOT NULL,
+        action TEXT NOT NULL,
+        details TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS media (
+        id TEXT PRIMARY KEY,
+        url TEXT NOT NULL,
+        name TEXT NOT NULL,
+        uploaded_by TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      ALTER TABLE media ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'image';
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY DEFAULT 'general',
+        site_name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        email TEXT NOT NULL,
+        whatsapp TEXT NOT NULL,
+        location TEXT NOT NULL,
+        facebook TEXT NOT NULL,
+        instagram TEXT NOT NULL,
+        promo_banner_text TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'user',
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    try {
+      await client.unsafe(ddl);
+      console.log('[SCHEMA] Tables verified / created successfully.');
+    } catch (e) {
+      console.error('[SCHEMA] ensureSchema failed:', e);
+    }
+  };
+
+  await ensureSchema();
+
+  // Static Local Data for Fallbacks / first-run seeding
   const { EASTER_TOURS, CATEGORIZED_TOURS, SPECIAL_OFFERS, GALLERY_ITEMS } = await import('./src/data');
 
   const DEFAULT_CATEGORIES = [
@@ -43,6 +203,22 @@ async function startServer() {
     promoBannerText: 'Book any tour and get another day excursion completely free of charge!'
   };
 
+  // Coerce a possibly-stringified / single value into a clean string[] of URLs.
+  const toUrlArray = (val: any): string[] => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val.map((v) => String(v)).filter(Boolean);
+    if (typeof val === 'string') {
+      const s = val.trim();
+      if (!s) return [];
+      try {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed)) return parsed.map((v) => String(v)).filter(Boolean);
+      } catch { /* not JSON, treat as single url */ }
+      return [s];
+    }
+    return [];
+  };
+
   // -----------------------------------------------------------------
   // 1. HEALTH AND STATUS ENDPOINTS
   // -----------------------------------------------------------------
@@ -50,12 +226,54 @@ async function startServer() {
     res.json({
       status: 'ok',
       database: isPostgresConfigured() ? 'PostgreSQL (Active)' : 'PostgreSQL (Not Configured, falling back gracefully)',
+      uploadDir: UPLOAD_DIR,
       timestamp: new Date().toISOString()
     });
   });
 
   // -----------------------------------------------------------------
-  // 2. CATEGORIES API
+  // 2. FILE UPLOAD API
+  // -----------------------------------------------------------------
+  app.post('/api/upload', (req, res) => {
+    upload.array('files', 20)(req, res, async (err: any) => {
+      if (err) {
+        console.error('[UPLOAD] error:', err);
+        return res.status(400).json({ error: err.message || 'Upload failed' });
+      }
+      const files = (req.files as Express.Multer.File[]) || [];
+      if (files.length === 0) {
+        return res.status(400).json({ error: 'No files received.' });
+      }
+      const uploadedBy = (req.body?.uploadedBy as string) || 'Admin';
+      const results = files.map((f) => ({
+        url: `/uploads/${f.filename}`,
+        name: f.originalname,
+        type: f.mimetype.startsWith('video/') ? 'video' : 'image',
+        size: f.size,
+      }));
+
+      // Best-effort: register each uploaded asset in the media catalog.
+      if (isPostgresConfigured()) {
+        try {
+          for (const r of results) {
+            await db.insert(schema.media).values({
+              id: `media_${Date.now()}_${Math.round(Math.random() * 1e6)}`,
+              url: r.url,
+              name: r.name,
+              type: r.type as 'image' | 'video',
+              uploadedBy,
+            }).onConflictDoNothing();
+          }
+        } catch (e) {
+          console.error('[UPLOAD] media catalog insert failed (non-fatal):', e);
+        }
+      }
+      res.json({ files: results });
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // 3. CATEGORIES API
   // -----------------------------------------------------------------
   app.get('/api/categories', async (req, res) => {
     try {
@@ -64,7 +282,6 @@ async function startServer() {
       }
       const list = await db.select().from(schema.categories);
       if (list.length === 0) {
-        // Seed categories table if empty
         for (const cat of DEFAULT_CATEGORIES) {
           await db.insert(schema.categories).values(cat).onConflictDoNothing();
         }
@@ -79,41 +296,77 @@ async function startServer() {
 
   app.post('/api/categories', async (req, res) => {
     try {
-      const { name, slug, icon } = req.body;
-      const id = slug || `cat_${Date.now()}`;
+      const { id, name, slug, icon } = req.body;
+      const catId = id || slug || `cat_${Date.now()}`;
+      const catSlug = slug || catId;
       if (isPostgresConfigured()) {
-        const result = await db.insert(schema.categories).values({ id, name, slug: slug || id, icon }).returning();
+        const result = await db.insert(schema.categories)
+          .values({ id: catId, name, slug: catSlug, icon: icon || 'Compass' })
+          .onConflictDoUpdate({ target: schema.categories.id, set: { name, slug: catSlug, icon: icon || 'Compass' } })
+          .returning();
         return res.json(result[0]);
       }
-      res.json({ id, name, slug: slug || id, icon });
+      res.json({ id: catId, name, slug: catSlug, icon });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/categories/:id', async (req, res) => {
+    try {
+      const { name, slug, icon } = req.body;
+      if (isPostgresConfigured()) {
+        const set: any = {};
+        if (name !== undefined) set.name = name;
+        if (slug !== undefined) set.slug = slug;
+        if (icon !== undefined) set.icon = icon;
+        const result = await db.update(schema.categories).set(set).where(eq(schema.categories.id, req.params.id)).returning();
+        return res.json(result[0] || {});
+      }
+      res.json({ id: req.params.id, ...req.body });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/categories/:id', async (req, res) => {
+    try {
+      if (isPostgresConfigured()) {
+        await db.delete(schema.categories).where(eq(schema.categories.id, req.params.id));
+      }
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
   // -----------------------------------------------------------------
-  // 3. TOURS API
+  // 4. TOURS API
   // -----------------------------------------------------------------
+  const buildFallbackTours = () => {
+    const fallbackList: any[] = [];
+    EASTER_TOURS.forEach(t => fallbackList.push({ ...t, images: [t.image], videos: [], isEasterSpecial: true, isPopular: false, description: '' }));
+    Object.entries(CATEGORIZED_TOURS).forEach(([catKey, items]) => {
+      items.forEach(t => fallbackList.push({ ...t, images: [t.image], videos: [], category: catKey, isEasterSpecial: false, isPopular: catKey === 'recommended', description: '' }));
+    });
+    return fallbackList;
+  };
+
   app.get('/api/tours', async (req, res) => {
     try {
-      const fallbackList: any[] = [];
-      EASTER_TOURS.forEach(t => fallbackList.push({ ...t, isEasterSpecial: true, isPopular: false, description: '' }));
-      Object.entries(CATEGORIZED_TOURS).forEach(([catKey, items]) => {
-        items.forEach(t => fallbackList.push({ ...t, category: catKey, isEasterSpecial: false, isPopular: catKey === 'recommended', description: '' }));
-      });
-
+      const fallbackList = buildFallbackTours();
       if (!isPostgresConfigured()) {
         return res.json(fallbackList);
       }
-
       const list = await db.select().from(schema.tours);
       if (list.length === 0) {
-        // Seed default tours
         for (const tour of fallbackList) {
           await db.insert(schema.tours).values({
             id: tour.id,
             title: tour.title,
             image: tour.image,
+            images: tour.images || [tour.image],
+            videos: tour.videos || [],
             cities: String(tour.cities),
             location: tour.location,
             tags: tour.tags || [],
@@ -130,53 +383,95 @@ async function startServer() {
       res.json(list);
     } catch (error: any) {
       console.error('[DATABASE_ERROR] tours list failed:', error);
-      res.json([]);
+      res.json(buildFallbackTours());
     }
   });
+
+  const tourValuesFromPayload = (payload: any, id: string) => {
+    const images = toUrlArray(payload.images);
+    const primary = payload.image || images[0] || '';
+    if (primary && !images.includes(primary)) images.unshift(primary);
+    return {
+      id,
+      title: payload.title,
+      image: primary,
+      images,
+      videos: toUrlArray(payload.videos),
+      cities: String(payload.cities ?? ''),
+      location: payload.location ?? '',
+      tags: Array.isArray(payload.tags) ? payload.tags : [],
+      duration: payload.duration ?? '',
+      price: Number(payload.price) || 0,
+      description: payload.description || '',
+      category: payload.category || 'recommended',
+      isEasterSpecial: !!payload.isEasterSpecial,
+      isPopular: !!payload.isPopular
+    };
+  };
 
   app.post('/api/tours', async (req, res) => {
     try {
       const payload = req.body;
       const id = payload.id || `tour_${Date.now()}`;
+      const values = tourValuesFromPayload(payload, id);
       if (isPostgresConfigured()) {
-        const result = await db.insert(schema.tours).values({
-          id,
-          title: payload.title,
-          image: payload.image,
-          cities: String(payload.cities),
-          location: payload.location,
-          tags: payload.tags || [],
-          duration: payload.duration,
-          price: Number(payload.price) || 0,
-          description: payload.description || '',
-          category: payload.category || 'recommended',
-          isEasterSpecial: payload.isEasterSpecial || false,
-          isPopular: payload.isPopular || false
-        }).returning();
+        const { id: _omit, ...rest } = values;
+        const result = await db.insert(schema.tours).values(values)
+          .onConflictDoUpdate({ target: schema.tours.id, set: rest })
+          .returning();
         return res.json(result[0]);
       }
-      res.json({ id, ...payload });
+      res.json(values);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/tours/:id', async (req, res) => {
+    try {
+      const id = req.params.id;
+      const values = tourValuesFromPayload({ ...req.body, id }, id);
+      const { id: _omit, ...rest } = values;
+      if (isPostgresConfigured()) {
+        const result = await db.update(schema.tours).set(rest).where(eq(schema.tours.id, id)).returning();
+        return res.json(result[0] || {});
+      }
+      res.json(values);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/tours/:id', async (req, res) => {
+    try {
+      if (isPostgresConfigured()) {
+        await db.delete(schema.tours).where(eq(schema.tours.id, req.params.id));
+      }
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
   // -----------------------------------------------------------------
-  // 4. OFFERS API
+  // 5. OFFERS API
   // -----------------------------------------------------------------
+  const buildFallbackOffers = () => SPECIAL_OFFERS.map((o) => ({ ...o, images: [o.image], videos: [] }));
+
   app.get('/api/offers', async (req, res) => {
     try {
       if (!isPostgresConfigured()) {
-        return res.json(SPECIAL_OFFERS);
+        return res.json(buildFallbackOffers());
       }
       const list = await db.select().from(schema.specialOffers);
       if (list.length === 0) {
-        // Seed default offers
         for (const offer of SPECIAL_OFFERS) {
           await db.insert(schema.specialOffers).values({
             id: offer.id,
             title: offer.title,
             image: offer.image,
+            images: [offer.image],
+            videos: [],
             cities: String(offer.cities),
             location: offer.location,
             tags: offer.tags || [],
@@ -187,43 +482,82 @@ async function startServer() {
             countdownDays: offer.countdownDays || 193
           }).onConflictDoNothing();
         }
-        return res.json(SPECIAL_OFFERS);
+        return res.json(buildFallbackOffers());
       }
       res.json(list);
     } catch (error: any) {
       console.error('[DATABASE_ERROR] specialOffers list failed:', error);
-      res.json(SPECIAL_OFFERS);
+      res.json(buildFallbackOffers());
     }
   });
+
+  const offerValuesFromPayload = (payload: any, id: string) => {
+    const images = toUrlArray(payload.images);
+    const primary = payload.image || images[0] || '';
+    if (primary && !images.includes(primary)) images.unshift(primary);
+    return {
+      id,
+      title: payload.title,
+      image: primary,
+      images,
+      videos: toUrlArray(payload.videos),
+      cities: String(payload.cities ?? ''),
+      location: payload.location ?? '',
+      tags: Array.isArray(payload.tags) ? payload.tags : [],
+      duration: payload.duration ?? '',
+      price: Number(payload.price) || 0,
+      originalPrice: Number(payload.originalPrice) || 0,
+      badge: payload.badge || 'Special Offer',
+      countdownDays: Number(payload.countdownDays) || 193
+    };
+  };
 
   app.post('/api/offers', async (req, res) => {
     try {
       const payload = req.body;
       const id = payload.id || `offer_${Date.now()}`;
+      const values = offerValuesFromPayload(payload, id);
       if (isPostgresConfigured()) {
-        const result = await db.insert(schema.specialOffers).values({
-          id,
-          title: payload.title,
-          image: payload.image,
-          cities: String(payload.cities),
-          location: payload.location,
-          tags: payload.tags || [],
-          duration: payload.duration,
-          price: Number(payload.price) || 0,
-          originalPrice: Number(payload.originalPrice) || 0,
-          badge: payload.badge || 'Special Promo',
-          countdownDays: Number(payload.countdownDays) || 193
-        }).returning();
+        const { id: _omit, ...rest } = values;
+        const result = await db.insert(schema.specialOffers).values(values)
+          .onConflictDoUpdate({ target: schema.specialOffers.id, set: rest })
+          .returning();
         return res.json(result[0]);
       }
-      res.json({ id, ...payload });
+      res.json(values);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/offers/:id', async (req, res) => {
+    try {
+      const id = req.params.id;
+      const values = offerValuesFromPayload({ ...req.body, id }, id);
+      const { id: _omit, ...rest } = values;
+      if (isPostgresConfigured()) {
+        const result = await db.update(schema.specialOffers).set(rest).where(eq(schema.specialOffers.id, id)).returning();
+        return res.json(result[0] || {});
+      }
+      res.json(values);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/offers/:id', async (req, res) => {
+    try {
+      if (isPostgresConfigured()) {
+        await db.delete(schema.specialOffers).where(eq(schema.specialOffers.id, req.params.id));
+      }
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
   // -----------------------------------------------------------------
-  // 5. BOOKINGS API
+  // 6. BOOKINGS API
   // -----------------------------------------------------------------
   app.get('/api/bookings', async (req, res) => {
     try {
@@ -233,7 +567,7 @@ async function startServer() {
       const list = await db.select().from(schema.bookings).orderBy(desc(schema.bookings.createdAt));
       res.json(list);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.json([]);
     }
   });
 
@@ -267,8 +601,32 @@ async function startServer() {
     }
   });
 
+  app.patch('/api/bookings/:id', async (req, res) => {
+    try {
+      const { status } = req.body;
+      if (isPostgresConfigured()) {
+        const result = await db.update(schema.bookings).set({ status }).where(eq(schema.bookings.id, req.params.id)).returning();
+        return res.json(result[0] || {});
+      }
+      res.json({ id: req.params.id, status });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/bookings/:id', async (req, res) => {
+    try {
+      if (isPostgresConfigured()) {
+        await db.delete(schema.bookings).where(eq(schema.bookings.id, req.params.id));
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // -----------------------------------------------------------------
-  // 6. MEDIA GALLERY API
+  // 7. MEDIA GALLERY API
   // -----------------------------------------------------------------
   app.get('/api/media', async (req, res) => {
     try {
@@ -276,6 +634,7 @@ async function startServer() {
         id: g.id,
         url: g.image,
         name: g.title,
+        type: 'image',
         uploadedBy: 'System Seeder',
         createdAt: new Date().toISOString()
       }));
@@ -283,13 +642,14 @@ async function startServer() {
       if (!isPostgresConfigured()) {
         return res.json(defaultMedia);
       }
-      const list = await db.select().from(schema.media);
+      const list = await db.select().from(schema.media).orderBy(desc(schema.media.createdAt));
       if (list.length === 0) {
         for (const med of defaultMedia) {
           await db.insert(schema.media).values({
             id: med.id,
             url: med.url,
             name: med.name,
+            type: 'image',
             uploadedBy: med.uploadedBy,
             createdAt: new Date(med.createdAt)
           }).onConflictDoNothing();
@@ -302,8 +662,40 @@ async function startServer() {
     }
   });
 
+  app.post('/api/media', async (req, res) => {
+    try {
+      const payload = req.body;
+      const id = payload.id || `media_${Date.now()}`;
+      const item = {
+        id,
+        url: payload.url,
+        name: payload.name || 'Untitled',
+        type: (payload.type === 'video' ? 'video' : 'image') as 'image' | 'video',
+        uploadedBy: payload.uploadedBy || 'Admin',
+      };
+      if (isPostgresConfigured()) {
+        const result = await db.insert(schema.media).values(item).onConflictDoNothing().returning();
+        return res.json(result[0] || item);
+      }
+      res.json({ ...item, createdAt: new Date().toISOString() });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/media/:id', async (req, res) => {
+    try {
+      if (isPostgresConfigured()) {
+        await db.delete(schema.media).where(eq(schema.media.id, req.params.id));
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // -----------------------------------------------------------------
-  // 7. SETTINGS API
+  // 8. SETTINGS API
   // -----------------------------------------------------------------
   app.get('/api/settings', async (req, res) => {
     try {
@@ -325,7 +717,7 @@ async function startServer() {
     try {
       const payload = req.body;
       if (isPostgresConfigured()) {
-        const result = await db.insert(schema.settings).values({
+        const values = {
           key: 'general',
           siteName: payload.siteName || DEFAULT_SETTINGS.siteName,
           phone: payload.phone || DEFAULT_SETTINGS.phone,
@@ -335,13 +727,94 @@ async function startServer() {
           facebook: payload.facebook || DEFAULT_SETTINGS.facebook,
           instagram: payload.instagram || DEFAULT_SETTINGS.instagram,
           promoBannerText: payload.promoBannerText || DEFAULT_SETTINGS.promoBannerText
-        }).onConflictDoUpdate({
-          target: schema.settings.key,
-          set: payload
-        }).returning();
+        };
+        const result = await db.insert(schema.settings).values(values)
+          .onConflictDoUpdate({ target: schema.settings.key, set: values }).returning();
         return res.json(result[0]);
       }
       res.json({ key: 'general', ...payload });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // -----------------------------------------------------------------
+  // 9. USERS API (admin management)
+  // -----------------------------------------------------------------
+  app.get('/api/users', async (req, res) => {
+    try {
+      if (!isPostgresConfigured()) return res.json([]);
+      const list = await db.select().from(schema.users).orderBy(desc(schema.users.createdAt));
+      res.json(list);
+    } catch (error: any) {
+      res.json([]);
+    }
+  });
+
+  app.post('/api/users', async (req, res) => {
+    try {
+      const payload = req.body;
+      const id = payload.id || `user_${Date.now()}`;
+      const values = {
+        id,
+        email: payload.email || '',
+        name: payload.name || 'New User',
+        role: (payload.role || 'user') as 'super_admin' | 'admin' | 'editor' | 'user',
+      };
+      if (isPostgresConfigured()) {
+        const result = await db.insert(schema.users).values(values)
+          .onConflictDoUpdate({ target: schema.users.id, set: { email: values.email, name: values.name, role: values.role } })
+          .returning();
+        return res.json(result[0]);
+      }
+      res.json({ ...values, createdAt: new Date().toISOString() });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.patch('/api/users/:id', async (req, res) => {
+    try {
+      const { role } = req.body;
+      if (isPostgresConfigured()) {
+        const result = await db.update(schema.users).set({ role }).where(eq(schema.users.id, req.params.id)).returning();
+        return res.json(result[0] || {});
+      }
+      res.json({ id: req.params.id, role });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // -----------------------------------------------------------------
+  // 10. ACTIVITY LOGS API
+  // -----------------------------------------------------------------
+  app.get('/api/logs', async (req, res) => {
+    try {
+      if (!isPostgresConfigured()) return res.json([]);
+      const list = await db.select().from(schema.activityLogs).orderBy(desc(schema.activityLogs.createdAt));
+      res.json(list);
+    } catch (error: any) {
+      res.json([]);
+    }
+  });
+
+  app.post('/api/logs', async (req, res) => {
+    try {
+      const payload = req.body;
+      const id = `log_${Date.now()}_${Math.round(Math.random() * 1e6)}`;
+      const values = {
+        id,
+        userId: payload.userId || 'system',
+        userEmail: payload.userEmail || '',
+        userName: payload.userName || 'System',
+        action: payload.action || '',
+        details: payload.details || ''
+      };
+      if (isPostgresConfigured()) {
+        await db.insert(schema.activityLogs).values(values).onConflictDoNothing();
+      }
+      res.json({ ...values, createdAt: new Date().toISOString() });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

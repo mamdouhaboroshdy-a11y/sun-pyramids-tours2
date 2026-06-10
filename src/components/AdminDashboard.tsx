@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { useDb, CategoryModel, TourModel, BookingModel, MediaModel, SpecialOffer, SettingModel } from '../context/DbContext';
 import { useAuth, UserRole } from '../context/AuthContext';
+import MediaUploader from './MediaUploader';
+import { uploadFiles } from '../lib/api';
 
 interface AdminDashboardProps {
   isOpen: boolean;
@@ -24,7 +26,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
     addOffer, updateOffer, deleteOffer,
     updateBookingStatus, deleteBooking,
     addMediaAsset, deleteMediaAsset,
-    updateSettings,
+    updateSettings, refresh,
     allUsers, loadAllUsers, updateUserRoleInDb
   } = useDb();
 
@@ -36,14 +38,14 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
   // Forms state
   // 1. Tour Form
   const [tourForm, setTourForm] = useState<Partial<TourModel>>({
-    title: '', category: '', duration: '', price: 0, image: '',
+    title: '', category: '', duration: '', price: 0, image: '', images: [], videos: [],
     cities: '', location: '', tags: [], isEasterSpecial: false, isPopular: false, description: ''
   });
   const [editingTourId, setEditingTourId] = useState<string | null>(null);
 
   // 2. Offer Form
   const [offerForm, setOfferForm] = useState<Partial<SpecialOffer>>({
-    title: '', image: '', price: 0, originalPrice: 0, cities: '',
+    title: '', image: '', images: [], videos: [], price: 0, originalPrice: 0, cities: '',
     location: '', tags: [], duration: '', badge: 'Special Offer', countdownDays: 10
   });
   const [editingOfferId, setEditingOfferId] = useState<string | null>(null);
@@ -56,6 +58,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
 
   // 4. Media Form
   const [mediaForm, setMediaForm] = useState({ name: '', url: '' });
+  const [mediaUploading, setMediaUploading] = useState(false);
 
   // 5. Settings Form
   const [settingsForm, setSettingsForm] = useState<SettingModel>({
@@ -115,12 +118,15 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
     }
     setLoading(true);
     try {
+      const tourImages = Array.isArray(tourForm.images) ? tourForm.images : [];
       const tourPayload = {
         title: tourForm.title || '',
         category: tourForm.category || 'recommended',
         duration: tourForm.duration || '',
         price: Number(tourForm.price) || 0,
-        image: tourForm.image || '',
+        image: tourForm.image || tourImages[0] || '',
+        images: tourImages,
+        videos: Array.isArray(tourForm.videos) ? tourForm.videos : [],
         cities: tourForm.cities || '',
         location: tourForm.location || '',
         tags: Array.isArray(tourForm.tags) ? tourForm.tags : (tourForm.tags as string || '').split(',').map(s => s.trim()).filter(Boolean),
@@ -137,7 +143,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
         await addTour(tourPayload);
         showToast('success', 'New tour package added to the database successfully.');
       }
-      setTourForm({ title: '', category: '', duration: '', price: 0, image: '', cities: '', location: '', tags: [], isEasterSpecial: false, isPopular: false, description: '' });
+      setTourForm({ title: '', category: '', duration: '', price: 0, image: '', images: [], videos: [], cities: '', location: '', tags: [], isEasterSpecial: false, isPopular: false, description: '' });
     } catch (e: any) {
       showToast('error', e.message);
     } finally {
@@ -174,9 +180,12 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
     }
     setLoading(true);
     try {
+      const offerImages = Array.isArray(offerForm.images) ? offerForm.images : [];
       const offerPayload = {
         title: offerForm.title || '',
-        image: offerForm.image || '',
+        image: offerForm.image || offerImages[0] || '',
+        images: offerImages,
+        videos: Array.isArray(offerForm.videos) ? offerForm.videos : [],
         price: Number(offerForm.price) || 0,
         originalPrice: Number(offerForm.originalPrice) || 0,
         cities: offerForm.cities || '',
@@ -195,7 +204,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
         await addOffer(offerPayload);
         showToast('success', 'New special promotional offer added successfully.');
       }
-      setOfferForm({ title: '', image: '', price: 0, originalPrice: 0, cities: '', location: '', tags: [], duration: '', badge: 'Special Offer', countdownDays: 10 });
+      setOfferForm({ title: '', image: '', images: [], videos: [], price: 0, originalPrice: 0, cities: '', location: '', tags: [], duration: '', badge: 'Special Offer', countdownDays: 10 });
     } catch (e: any) {
       showToast('error', e.message);
     } finally {
@@ -280,6 +289,21 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
       showToast('error', e.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMediaDeviceUpload = async (files: FileList | null) => {
+    if (!isEditorOrHigher || !files || files.length === 0) return;
+    setMediaUploading(true);
+    try {
+      // Files are stored on the server and auto-registered in the media catalog.
+      await uploadFiles(Array.from(files), profile?.name || 'Admin');
+      await refresh();
+      showToast('success', `${files.length} file(s) uploaded to the gallery successfully.`);
+    } catch (e: any) {
+      showToast('error', e.message || 'Upload failed');
+    } finally {
+      setMediaUploading(false);
     }
   };
 
@@ -581,14 +605,24 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                       </div>
 
                       <div className="md:col-span-2">
-                        <label className="block text-xs font-bold text-gray-500 mb-1">Image Thumbnail Web Address (URL)</label>
-                        <input 
-                          type="text" 
-                          required
+                        <label className="block text-xs font-bold text-gray-500 mb-1">Primary Image URL (optional — auto-filled from your first upload)</label>
+                        <input
+                          type="text"
                           placeholder="https://images.unsplash.com/..."
                           value={tourForm.image || ''}
                           onChange={(e) => setTourForm({...tourForm, image: e.target.value})}
                           className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                        />
+                      </div>
+
+                      <div className="md:col-span-3">
+                        <label className="block text-xs font-bold text-gray-500 mb-1.5">Photos & Videos (upload multiple from your device)</label>
+                        <MediaUploader
+                          images={tourForm.images || []}
+                          videos={tourForm.videos || []}
+                          onImagesChange={(urls) => setTourForm({ ...tourForm, images: urls, image: tourForm.image || urls[0] || '' })}
+                          onVideosChange={(urls) => setTourForm({ ...tourForm, videos: urls })}
+                          uploadedBy={profile?.name || 'Admin'}
                         />
                       </div>
 
@@ -654,7 +688,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                           type="button" 
                           onClick={() => {
                             setEditingTourId(null);
-                            setTourForm({ title: '', category: '', duration: '', price: 0, image: '', cities: '', location: '', tags: [], isEasterSpecial: false, isPopular: false, description: '' });
+                            setTourForm({ title: '', category: '', duration: '', price: 0, image: '', images: [], videos: [], cities: '', location: '', tags: [], isEasterSpecial: false, isPopular: false, description: '' });
                           }}
                           className="px-5 py-2 rounded-full border border-gray-200 hover:bg-gray-100 font-semibold text-xs text-gray-700 transition"
                         >
@@ -800,14 +834,24 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                       </div>
 
                       <div className="md:col-span-2">
-                        <label className="block text-xs font-bold text-gray-550 mb-1">Campaign Image URL Address</label>
-                        <input 
-                          type="text" 
-                          required
+                        <label className="block text-xs font-bold text-gray-550 mb-1">Primary Campaign Image URL (optional — auto-filled from your first upload)</label>
+                        <input
+                          type="text"
                           placeholder="https://images.unsplash.com/photo-..."
                           value={offerForm.image || ''}
                           onChange={(e) => setOfferForm({...offerForm, image: e.target.value})}
                           className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                        />
+                      </div>
+
+                      <div className="md:col-span-3">
+                        <label className="block text-xs font-bold text-gray-550 mb-1.5">Campaign Photos & Videos (upload multiple from your device)</label>
+                        <MediaUploader
+                          images={offerForm.images || []}
+                          videos={offerForm.videos || []}
+                          onImagesChange={(urls) => setOfferForm({ ...offerForm, images: urls, image: offerForm.image || urls[0] || '' })}
+                          onVideosChange={(urls) => setOfferForm({ ...offerForm, videos: urls })}
+                          uploadedBy={profile?.name || 'Admin'}
                         />
                       </div>
 
@@ -829,7 +873,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                           type="button" 
                           onClick={() => {
                             setEditingOfferId(null);
-                            setOfferForm({ title: '', image: '', price: 0, originalPrice: 0, cities: '', location: '', tags: [], duration: '', badge: 'Special Offer', countdownDays: 10 });
+                            setOfferForm({ title: '', image: '', images: [], videos: [], price: 0, originalPrice: 0, cities: '', location: '', tags: [], duration: '', badge: 'Special Offer', countdownDays: 10 });
                           }}
                           className="px-5 py-2 rounded-full border border-gray-200 hover:bg-gray-100 font-semibold text-xs text-gray-700 transition"
                         >
@@ -1162,8 +1206,30 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
               <div className="space-y-6 text-left">
                 <div>
                   <h3 className="text-xl font-bold text-slate-900">Media Asset Management Library ({media.length})</h3>
-                  <p className="text-xs text-gray-500 mt-1">Register Unsplash or public direct image paths to configure tour banners instantly.</p>
+                  <p className="text-xs text-gray-500 mt-1">Upload images & videos from your device, or register a public URL.</p>
                 </div>
+
+                {isEditorOrHigher && (
+                  <div className="bg-white p-6 rounded-3xl border border-gray-200 space-y-3 shadow-xs">
+                    <h4 className="font-bold text-sm text-[#123da5] border-b border-gray-100 pb-2">⬆️ Upload Images & Videos From Device</h4>
+                    <label
+                      className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-2xl py-8 px-4 text-center transition ${mediaUploading ? 'opacity-60 cursor-wait border-amber-300 bg-amber-50' : 'border-gray-300 hover:border-amber-400 hover:bg-amber-50/40 cursor-pointer'}`}
+                    >
+                      <span className="text-xs font-bold text-slate-700">
+                        {mediaUploading ? 'Uploading…' : 'Click to select images & videos (multiple allowed)'}
+                      </span>
+                      <span className="text-[10px] text-gray-400">Stored on your Railway server · images & videos up to 250MB each</span>
+                      <input
+                        type="file"
+                        accept="image/*,video/*"
+                        multiple
+                        disabled={mediaUploading}
+                        className="hidden"
+                        onChange={(e) => { handleMediaDeviceUpload(e.target.files); e.target.value = ''; }}
+                      />
+                    </label>
+                  </div>
+                )}
 
                 {isEditorOrHigher && (
                   <form onSubmit={handleMediaSubmit} className="bg-white p-6 rounded-3xl border border-gray-200 space-y-4 shadow-xs">
@@ -1211,7 +1277,11 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                   {media.map((img) => (
                     <div key={img.id} className="bg-white rounded-3xl overflow-hidden border border-gray-200 shadow-xs flex flex-col relative group">
-                      <img src={img.url} alt={img.name} className="w-full h-40 object-cover border-b border-gray-100 bg-gray-50" referrerPolicy="no-referrer" />
+                      {img.type === 'video' ? (
+                        <video src={img.url} className="w-full h-40 object-cover border-b border-gray-100 bg-black" controls muted />
+                      ) : (
+                        <img src={img.url} alt={img.name} className="w-full h-40 object-cover border-b border-gray-100 bg-gray-50" referrerPolicy="no-referrer" />
+                      )}
                       
                       <div className="p-3 text-left flex-1 flex flex-col justify-between">
                         <div>

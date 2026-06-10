@@ -19,3 +19,8 @@ const client = postgres(connectionString, {
 });
 
 export const db = drizzle(client, { schema });
+
+// Exported so the server can run raw DDL at startup (CREATE TABLE / ALTER TABLE
+// IF NOT EXISTS) — Drizzle does not auto-provision tables, and without them the
+// API would silently fall back to in-memory demo data and never persist.
+export { client };

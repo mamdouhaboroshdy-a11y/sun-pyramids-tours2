@@ -1,16 +1,32 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  User as FirebaseUser, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  signOut, 
+import {
+  User as FirebaseUser,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
   onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signInAnonymously
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { auth } from '../firebase';
+import { apiGet, apiPost, apiPatch } from '../lib/api';
+
+// User profiles now persist to Postgres (/api/users). Firebase is used ONLY for
+// the optional Google sign-in popup — all profile data lives in our own database.
+async function fetchProfileById(id: string): Promise<UserProfile | null> {
+  try {
+    const all = await apiGet<UserProfile[]>('/users');
+    return all.find((u) => u.id === id) || null;
+  } catch {
+    return null;
+  }
+}
+async function upsertProfile(profile: UserProfile): Promise<UserProfile> {
+  try {
+    return await apiPost<UserProfile>('/users', profile);
+  } catch {
+    return profile;
+  }
+}
 
 export type UserRole = 'super_admin' | 'admin' | 'editor' | 'user';
 
@@ -85,19 +101,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchOrCreateProfile = async (firebaseUser: FirebaseUser, forceRole?: UserRole) => {
     try {
-      const userRef = doc(db, 'users', firebaseUser.uid);
-      const userSnap = await getDoc(userRef);
+      const existing = await fetchProfileById(firebaseUser.uid);
 
-      if (userSnap.exists()) {
-        const data = userSnap.data() as UserProfile;
-        if (forceRole) {
-          await updateDoc(userRef, { role: forceRole });
-          setProfile({ ...data, role: forceRole });
+      if (existing) {
+        if (forceRole && forceRole !== existing.role) {
+          await apiPatch(`/users/${firebaseUser.uid}`, { role: forceRole });
+          setProfile({ ...existing, role: forceRole });
         } else {
-          setProfile(data);
+          setProfile(existing);
         }
       } else {
-        // Determine role
         const isDefaultSuper = firebaseUser.email === 'mmdohgiko@gmail.com' || firebaseUser.email?.includes('superadmin');
         const role: UserRole = forceRole || (isDefaultSuper ? 'super_admin' : 'user');
 
@@ -109,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           createdAt: new Date().toISOString()
         };
 
-        await setDoc(userRef, newProfile);
+        await upsertProfile(newProfile);
         setProfile(newProfile);
       }
     } catch (e) {
@@ -156,7 +169,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
-      const userRef = doc(db, 'users', firebaseUser.uid);
       const newProfile: UserProfile = {
         id: firebaseUser.uid,
         email: demoEmail,
@@ -165,11 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date().toISOString()
       };
 
-      try {
-        await setDoc(userRef, newProfile);
-      } catch (dbErr) {
-        console.warn('Silent note: Could not write admin user profile document to firestore (ignorable):', dbErr);
-      }
+      await upsertProfile(newProfile);
 
       setProfile(newProfile);
       setUser(firebaseUser);
@@ -220,13 +228,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Save virtual profile to localStorage
         localStorage.setItem('virtual_admin_profile', JSON.stringify(newProfile));
 
-        // Create or merge user document in Firestore (since rules are open, this is safe and seeds the DB)
-        try {
-          const userRef = doc(db, 'users', firebaseUser.uid);
-          await setDoc(userRef, newProfile);
-        } catch (dbErr) {
-          console.warn('Silent warning: Could not write admin user profile document to firestore (ignorable):', dbErr);
-        }
+        // Persist the admin profile to Postgres (best effort).
+        await upsertProfile(newProfile);
 
         setProfile(newProfile);
         setUser(firebaseUser);
@@ -255,8 +258,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfileRole = async (userId: string, role: UserRole) => {
     try {
-      const userRef = doc(db, 'users', userId);
-      await setDoc(userRef, { role }, { merge: true });
+      await apiPatch(`/users/${userId}`, { role });
       if (profile && profile.id === userId) {
         setProfile({ ...profile, role });
       }

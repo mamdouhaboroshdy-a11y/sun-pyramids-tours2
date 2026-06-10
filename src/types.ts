@@ -2,6 +2,8 @@ export interface TourPackage {
   id: string;
   title: string;
   image: string;
+  images?: string[]; // Gallery image URLs (image = images[0])
+  videos?: string[]; // Video URLs
   cities: number | string;
   location: string;
   tags: string[];

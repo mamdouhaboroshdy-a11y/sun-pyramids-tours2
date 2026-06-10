@@ -12,7 +12,9 @@ export const categories = pgTable('categories', {
 export const tours = pgTable('tours', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
-  image: text('image').notNull(),
+  image: text('image').notNull(), // Primary thumbnail (kept = images[0] for backward compat)
+  images: jsonb('images').$type<string[]>().notNull().default([]), // Gallery image URLs
+  videos: jsonb('videos').$type<string[]>().notNull().default([]), // Video URLs
   cities: text('cities').notNull(), // E.g. 'Cairo', '4 Cities'
   location: text('location').notNull(),
   tags: jsonb('tags').$type<string[]>().notNull().default([]), // Postgres JSONB array
@@ -28,7 +30,9 @@ export const tours = pgTable('tours', {
 export const specialOffers = pgTable('special_offers', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
-  image: text('image').notNull(),
+  image: text('image').notNull(), // Primary thumbnail (kept = images[0] for backward compat)
+  images: jsonb('images').$type<string[]>().notNull().default([]), // Gallery image URLs
+  videos: jsonb('videos').$type<string[]>().notNull().default([]), // Video URLs
   cities: text('cities').notNull(),
   location: text('location').notNull(),
   tags: jsonb('tags').$type<string[]>().notNull().default([]),
@@ -75,7 +79,17 @@ export const media = pgTable('media', {
   id: text('id').primaryKey(),
   url: text('url').notNull(),
   name: text('name').notNull(),
+  type: text('type').$type<'image' | 'video'>().default('image').notNull(),
   uploadedBy: text('uploaded_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// 8. Users Table (admin/editor accounts shown in the User Management tab)
+export const users = pgTable('users', {
+  id: text('id').primaryKey(),
+  email: text('email').notNull(),
+  name: text('name').notNull(),
+  role: text('role').$type<'super_admin' | 'admin' | 'editor' | 'user'>().default('user').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
