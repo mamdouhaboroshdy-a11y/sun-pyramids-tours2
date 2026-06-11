@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Percent, Clock, MapPin, Heart, Flame } from 'lucide-react';
+import { Percent, Clock, MapPin, Heart, Flame, Images } from 'lucide-react';
 import { useDb, SpecialOffer } from '../context/DbContext';
+import MediaGalleryModal from './MediaGalleryModal';
 
 interface OffersSectionProps {
   onBook: (offer: SpecialOffer) => void;
@@ -9,6 +10,7 @@ interface OffersSectionProps {
 export default function OffersSection({ onBook }: OffersSectionProps) {
   const { offers } = useDb();
   const [savedStatus, setSavedStatus] = useState<{ [key: string]: boolean }>({});
+  const [galleryOffer, setGalleryOffer] = useState<SpecialOffer | null>(null);
 
   const [secondsLeft, setSecondsLeft] = useState<number>(3 * 24 * 3600 + 12 * 3600 + 44 * 60 + 55);
 
@@ -88,12 +90,29 @@ export default function OffersSection({ onBook }: OffersSectionProps) {
                   </div>
 
                   {/* Floating heart save */}
-                  <button 
+                  <button
                     onClick={(e) => toggleSave(offer.id, e)}
                     className="absolute top-3.5 right-3.5 bg-white/95 p-2 rounded-full shadow-md hover:scale-105 transition active:scale-95 cursor-pointer z-10"
                   >
                     <Heart className={`w-4 h-4 ${isSaved ? 'text-red-500 fill-red-500 scale-110' : 'text-gray-400'}`} />
                   </button>
+
+                  {/* View all photos & videos */}
+                  {(() => {
+                    const imgs = (offer.images && offer.images.length > 0) ? offer.images : (offer.image ? [offer.image] : []);
+                    const vids = offer.videos || [];
+                    const count = imgs.length + vids.length;
+                    if (count <= 1 && vids.length === 0) return null;
+                    return (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setGalleryOffer(offer); }}
+                        className="absolute bottom-3 left-3 bg-black/55 hover:bg-black/75 backdrop-blur-sm text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-md transition active:scale-95 cursor-pointer z-10"
+                      >
+                        <Images className="w-3.5 h-3.5" />
+                        View {count} {vids.length > 0 ? 'photos & videos' : 'photos'}
+                      </button>
+                    );
+                  })()}
                 </div>
 
                 {/* Body Details */}
@@ -187,6 +206,14 @@ export default function OffersSection({ onBook }: OffersSectionProps) {
         </div>
 
       </div>
+
+      <MediaGalleryModal
+        isOpen={!!galleryOffer}
+        onClose={() => setGalleryOffer(null)}
+        title={galleryOffer?.title}
+        images={(galleryOffer?.images && galleryOffer.images.length > 0) ? galleryOffer.images : (galleryOffer?.image ? [galleryOffer.image] : [])}
+        videos={galleryOffer?.videos || []}
+      />
     </section>
   );
 }

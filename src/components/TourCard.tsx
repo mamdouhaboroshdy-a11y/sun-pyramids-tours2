@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Heart, Clock, MapPin, Sparkles } from 'lucide-react';
+import { Heart, Clock, MapPin, Sparkles, Images } from 'lucide-react';
 import { TourPackage } from '../types';
+import MediaGalleryModal from './MediaGalleryModal';
 
 interface TourCardProps {
   tour: TourPackage;
@@ -9,6 +10,12 @@ interface TourCardProps {
 
 export default function TourCard({ tour, onBook }: TourCardProps) {
   const [isSaved, setIsSaved] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+
+  const galleryImages = (tour.images && tour.images.length > 0) ? tour.images : (tour.image ? [tour.image] : []);
+  const galleryVideos = tour.videos || [];
+  const mediaCount = galleryImages.length + galleryVideos.length;
+  const hasGallery = mediaCount > 1 || galleryVideos.length > 0;
 
   return (
     <div className="bg-white rounded-[26px] border border-gray-100/80 shadow-md hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 overflow-hidden flex flex-col group h-full font-sans">
@@ -34,21 +41,32 @@ export default function TourCard({ tour, onBook }: TourCardProps) {
         )}
 
         {/* Floating Heart Icon for saving */}
-        <button 
+        <button
           onClick={(e) => {
             e.stopPropagation();
             setIsSaved(!isSaved);
           }}
           className="absolute top-3.5 right-3.5 bg-white/95 hover:bg-white p-2.5 rounded-full shadow-lg transition duration-200 cursor-pointer active:scale-90"
         >
-          <Heart 
+          <Heart
             className={`w-4 h-4 transition ${
-              isSaved 
-                ? 'text-red-500 fill-red-500 scale-110' 
+              isSaved
+                ? 'text-red-500 fill-red-500 scale-110'
                 : 'text-gray-400 hover:text-red-500'
-            }`} 
+            }`}
           />
         </button>
+
+        {/* View all photos & videos */}
+        {hasGallery && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setGalleryOpen(true); }}
+            className="absolute bottom-3 left-3 bg-black/55 hover:bg-black/75 backdrop-blur-sm text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-md transition active:scale-95 cursor-pointer"
+          >
+            <Images className="w-3.5 h-3.5" />
+            View {mediaCount} {galleryVideos.length > 0 ? 'photos & videos' : 'photos'}
+          </button>
+        )}
       </div>
 
       {/* Content wrapper */}
@@ -93,6 +111,14 @@ export default function TourCard({ tour, onBook }: TourCardProps) {
           </div>
         </div>
       </div>
+
+      <MediaGalleryModal
+        isOpen={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        title={tour.title}
+        images={galleryImages}
+        videos={galleryVideos}
+      />
     </div>
   );
 }

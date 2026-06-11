@@ -620,7 +620,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                         <MediaUploader
                           images={tourForm.images || []}
                           videos={tourForm.videos || []}
-                          onImagesChange={(urls) => setTourForm({ ...tourForm, images: urls, image: tourForm.image || urls[0] || '' })}
+                          onImagesChange={(urls) => setTourForm({ ...tourForm, images: urls, image: urls[0] || '' })}
                           onVideosChange={(urls) => setTourForm({ ...tourForm, videos: urls })}
                           uploadedBy={profile?.name || 'Admin'}
                         />
@@ -849,7 +849,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                         <MediaUploader
                           images={offerForm.images || []}
                           videos={offerForm.videos || []}
-                          onImagesChange={(urls) => setOfferForm({ ...offerForm, images: urls, image: offerForm.image || urls[0] || '' })}
+                          onImagesChange={(urls) => setOfferForm({ ...offerForm, images: urls, image: urls[0] || '' })}
                           onVideosChange={(urls) => setOfferForm({ ...offerForm, videos: urls })}
                           uploadedBy={profile?.name || 'Admin'}
                         />

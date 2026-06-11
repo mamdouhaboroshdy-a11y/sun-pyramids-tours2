@@ -388,9 +388,12 @@ async function startServer() {
   });
 
   const tourValuesFromPayload = (payload: any, id: string) => {
+    // `images` is the source of truth. Fall back to a standalone `image` only when
+    // no gallery array was sent (older payloads). Never re-inject a stale primary —
+    // doing so makes a removed main image reappear on save.
     const images = toUrlArray(payload.images);
-    const primary = payload.image || images[0] || '';
-    if (primary && !images.includes(primary)) images.unshift(primary);
+    if (images.length === 0 && payload.image) images.push(payload.image);
+    const primary = images[0] || '';
     return {
       id,
       title: payload.title,
@@ -492,9 +495,10 @@ async function startServer() {
   });
 
   const offerValuesFromPayload = (payload: any, id: string) => {
+    // See tourValuesFromPayload: images array is authoritative so removals persist.
     const images = toUrlArray(payload.images);
-    const primary = payload.image || images[0] || '';
-    if (primary && !images.includes(primary)) images.unshift(primary);
+    if (images.length === 0 && payload.image) images.push(payload.image);
+    const primary = images[0] || '';
     return {
       id,
       title: payload.title,
