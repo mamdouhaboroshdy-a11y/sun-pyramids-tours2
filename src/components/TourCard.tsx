@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Heart, Clock, MapPin, Sparkles, Images } from 'lucide-react';
 import { TourPackage } from '../types';
 import MediaGalleryModal from './MediaGalleryModal';
+import RegistrationModal from './RegistrationModal';
 
 interface TourCardProps {
   tour: TourPackage;
@@ -11,6 +12,7 @@ interface TourCardProps {
 export default function TourCard({ tour, onBook }: TourCardProps) {
   const [isSaved, setIsSaved] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [registerOpen, setRegisterOpen] = useState(false);
 
   const galleryImages = (tour.images && tour.images.length > 0) ? tour.images : (tour.image ? [tour.image] : []);
   const galleryVideos = tour.videos || [];
@@ -110,7 +112,21 @@ export default function TourCard({ tour, onBook }: TourCardProps) {
             <span>{tour.duration}</span>
           </div>
         </div>
+
+        {/* Register Now CTA */}
+        <button
+          onClick={(e) => { e.stopPropagation(); setRegisterOpen(true); }}
+          className="mt-4 w-full bg-[#123da5] hover:bg-blue-800 text-white font-extrabold py-2.5 rounded-full text-xs transition active:scale-[0.99] cursor-pointer shadow-sm"
+        >
+          Register Now
+        </button>
       </div>
+
+      <RegistrationModal
+        isOpen={registerOpen}
+        onClose={() => setRegisterOpen(false)}
+        trip={{ id: tour.id, title: tour.title, type: 'tour' }}
+      />
 
       <MediaGalleryModal
         isOpen={galleryOpen}

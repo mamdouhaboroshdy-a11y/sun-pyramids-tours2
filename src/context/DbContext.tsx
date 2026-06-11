@@ -39,6 +39,19 @@ export interface BookingModel {
   toLocation?: string;
 }
 
+export interface RegistrationModel {
+  id: string;
+  tripId: string;
+  tripTitle: string;
+  tripType: 'tour' | 'offer';
+  fullName: string;
+  phone: string;
+  email: string;
+  preferredDate?: string;
+  preferredTime?: string;
+  createdAt: string;
+}
+
 export interface ActivityLogModel {
   id: string;
   userId: string;
@@ -74,6 +87,7 @@ interface DbContextType {
   tours: TourModel[];
   offers: SpecialOffer[];
   bookings: BookingModel[];
+  registrations: RegistrationModel[];
   activityLogs: ActivityLogModel[];
   media: MediaModel[];
   settings: SettingModel;
@@ -103,6 +117,10 @@ interface DbContextType {
   addBooking: (booking: Omit<BookingModel, 'id' | 'status' | 'createdAt'>) => Promise<string>;
   updateBookingStatus: (id: string, status: 'pending' | 'confirmed' | 'cancelled') => Promise<void>;
   deleteBooking: (id: string) => Promise<void>;
+
+  // Registration CRUD
+  addRegistration: (registration: Omit<RegistrationModel, 'id' | 'createdAt'>) => Promise<void>;
+  deleteRegistration: (id: string) => Promise<void>;
 
   // Media CRUD
   addMediaAsset: (media: Omit<MediaModel, 'id' | 'uploadedBy' | 'createdAt'>) => Promise<void>;
@@ -142,6 +160,7 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
   const [tours, setTours] = useState<TourModel[]>([]);
   const [offers, setOffers] = useState<SpecialOffer[]>([]);
   const [bookings, setBookings] = useState<BookingModel[]>([]);
+  const [registrations, setRegistrations] = useState<RegistrationModel[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLogModel[]>([]);
   const [media, setMedia] = useState<MediaModel[]>([]);
   const [settings, setSettings] = useState<SettingModel>(DEFAULT_SETTINGS);
@@ -191,15 +210,18 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
   const fetchAdmin = async () => {
     if (!isAdminRef.current) {
       setBookings([]);
+      setRegistrations([]);
       setActivityLogs([]);
       return;
     }
     try {
-      const [bks, lgs] = await Promise.all([
+      const [bks, regs, lgs] = await Promise.all([
         apiGet<BookingModel[]>('/bookings').catch(() => []),
+        apiGet<RegistrationModel[]>('/registrations').catch(() => []),
         apiGet<ActivityLogModel[]>('/logs').catch(() => []),
       ]);
       setBookings(bks || []);
+      setRegistrations(regs || []);
       setActivityLogs(lgs || []);
     } catch (e) {
       console.error('Failed to load admin data:', e);
@@ -313,6 +335,18 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
     await fetchAdmin();
   };
 
+  // --- Registration CRUD -------------------------------------------
+  // Public: any visitor can register for a trip (no admin/auth required).
+  const addRegistration = async (registration: Omit<RegistrationModel, 'id' | 'createdAt'>) => {
+    await apiPost('/registrations', registration);
+    await fetchAdmin();
+  };
+  const deleteRegistration = async (id: string) => {
+    await apiDelete(`/registrations/${id}`);
+    await logAdminAction('Delete Registration', `Successfully removed trip registration under ID: ${id}`);
+    await fetchAdmin();
+  };
+
   // --- Media CRUD ---------------------------------------------------
   const addMediaAsset = async (newMedia: Omit<MediaModel, 'id' | 'uploadedBy' | 'createdAt'>) => {
     await apiPost('/media', { ...newMedia, uploadedBy: profile?.name || 'Anonymous' });
@@ -359,6 +393,7 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
       tours,
       offers,
       bookings,
+      registrations,
       activityLogs,
       media,
       settings,
@@ -378,6 +413,8 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
       addBooking,
       updateBookingStatus,
       deleteBooking,
+      addRegistration,
+      deleteRegistration,
       addMediaAsset,
       deleteMediaAsset,
       updateSettings,

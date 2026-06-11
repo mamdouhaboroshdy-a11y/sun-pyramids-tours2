@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Percent, Clock, MapPin, Heart, Flame, Images } from 'lucide-react';
 import { useDb, SpecialOffer } from '../context/DbContext';
 import MediaGalleryModal from './MediaGalleryModal';
+import RegistrationModal from './RegistrationModal';
 
 interface OffersSectionProps {
   onBook: (offer: SpecialOffer) => void;
@@ -11,6 +12,7 @@ export default function OffersSection({ onBook }: OffersSectionProps) {
   const { offers } = useDb();
   const [savedStatus, setSavedStatus] = useState<{ [key: string]: boolean }>({});
   const [galleryOffer, setGalleryOffer] = useState<SpecialOffer | null>(null);
+  const [registerOffer, setRegisterOffer] = useState<SpecialOffer | null>(null);
 
   const [secondsLeft, setSecondsLeft] = useState<number>(3 * 24 * 3600 + 12 * 3600 + 44 * 60 + 55);
 
@@ -184,6 +186,14 @@ export default function OffersSection({ onBook }: OffersSectionProps) {
                     </div>
                   </div>
 
+                  {/* Register Now CTA */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setRegisterOffer(offer); }}
+                    className="mt-4 w-full bg-[#123da5] hover:bg-blue-800 text-white font-extrabold py-2.5 rounded-full text-xs transition active:scale-[0.99] cursor-pointer shadow-sm"
+                  >
+                    Register Now
+                  </button>
+
                 </div>
 
               </div>
@@ -213,6 +223,12 @@ export default function OffersSection({ onBook }: OffersSectionProps) {
         title={galleryOffer?.title}
         images={(galleryOffer?.images && galleryOffer.images.length > 0) ? galleryOffer.images : (galleryOffer?.image ? [galleryOffer.image] : [])}
         videos={galleryOffer?.videos || []}
+      />
+
+      <RegistrationModal
+        isOpen={!!registerOffer}
+        onClose={() => setRegisterOffer(null)}
+        trip={registerOffer ? { id: registerOffer.id, title: registerOffer.title, type: 'offer' } : null}
       />
     </section>
   );

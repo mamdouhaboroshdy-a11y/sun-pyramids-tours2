@@ -14,17 +14,18 @@ interface AdminDashboardProps {
   onClose: () => void;
 }
 
-type TabType = 'tours' | 'offers' | 'categories' | 'bookings' | 'users' | 'media' | 'logs' | 'settings';
+type TabType = 'tours' | 'offers' | 'categories' | 'bookings' | 'registrations' | 'users' | 'media' | 'logs' | 'settings';
 
 export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps) {
   const { profile, logout } = useAuth();
   const {
-    categories, tours, offers, bookings, activityLogs, media, settings,
+    categories, tours, offers, bookings, registrations, activityLogs, media, settings,
     seedDatabase, isDbEmpty, dbLoaded,
     addCategory, updateCategory, deleteCategory,
     addTour, updateTour, deleteTour,
     addOffer, updateOffer, deleteOffer,
     updateBookingStatus, deleteBooking,
+    deleteRegistration,
     addMediaAsset, deleteMediaAsset,
     updateSettings, refresh,
     allUsers, loadAllUsers, updateUserRoleInDb
@@ -463,8 +464,23 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
               </span>
             </button>
 
-            <button 
-              onClick={() => setActiveTab('users')} 
+            <button
+              onClick={() => setActiveTab('registrations')}
+              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition ${activeTab === 'registrations' ? 'bg-amber-500 text-slate-900 shadow-md' : 'hover:bg-slate-800 text-slate-300'}`}
+            >
+              <UserCheck className="w-4 h-4 shrink-0" />
+              <span className="whitespace-nowrap flex items-center justify-between w-full">
+                <span>Registrations</span>
+                {registrations.length > 0 && (
+                  <span className="bg-emerald-500 text-white font-bold px-2 py-0.5 rounded-full text-[10px] scale-90">
+                    {registrations.length}
+                  </span>
+                )}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('users')}
               className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition ${activeTab === 'users' ? 'bg-amber-500 text-slate-900 shadow-md' : 'hover:bg-slate-800 text-slate-300'}`}
             >
               <Users className="w-4 h-4 shrink-0" />
@@ -1134,6 +1150,111 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                     </table>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* TAB: TRIP REGISTRATIONS */}
+            {activeTab === 'registrations' && (
+              <div className="space-y-6 text-left">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-4">
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900">Trip Registrations ({registrations.length})</h3>
+                    <p className="text-xs text-gray-500 mt-1">Customers who registered interest per trip — with their contact details and preferred schedule.</p>
+                  </div>
+                </div>
+
+                {registrations.length === 0 ? (
+                  <div className="bg-white rounded-3xl border border-gray-200 p-10 text-center text-gray-400 text-sm shadow-xs">
+                    No registrations yet. They will appear here automatically when a customer clicks “Register Now”.
+                  </div>
+                ) : (
+                  (() => {
+                    // Group registrations by trip.
+                    const groups: { [key: string]: typeof registrations } = {};
+                    registrations.forEach((r) => {
+                      const key = `${r.tripType}:${r.tripId}`;
+                      (groups[key] = groups[key] || []).push(r);
+                    });
+                    return (
+                      <div className="space-y-6">
+                        {Object.entries(groups).map(([key, regs]) => {
+                          const sample = regs[0];
+                          const trip: any = sample.tripType === 'offer'
+                            ? offers.find(o => o.id === sample.tripId)
+                            : tours.find(t => t.id === sample.tripId);
+                          return (
+                            <div key={key} className="bg-white rounded-3xl border border-gray-200 shadow-xs overflow-hidden">
+                              {/* Trip header */}
+                              <div className="px-5 py-4 bg-slate-50 border-b border-gray-100 flex items-center gap-4">
+                                {trip?.image && (
+                                  <img src={trip.image} alt={sample.tripTitle} className="w-14 h-14 rounded-xl object-cover border border-gray-200 shrink-0" referrerPolicy="no-referrer" />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <h4 className="font-bold text-sm text-slate-900 truncate">{sample.tripTitle}</h4>
+                                  <div className="flex flex-wrap gap-2 mt-1 text-[11px]">
+                                    <span className="bg-[#123da5]/10 text-[#123da5] font-bold px-2 py-0.5 rounded-md uppercase">{sample.tripType}</span>
+                                    {trip?.price != null && <span className="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-md">💰 ${trip.price}</span>}
+                                    {trip?.duration && <span className="text-gray-400 font-medium">⏱️ {trip.duration}</span>}
+                                    <span className="bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-md">{regs.length} registered</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Registrations table */}
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                  <thead className="bg-white border-b border-gray-100 text-gray-500 uppercase text-[10px] tracking-wider">
+                                    <tr>
+                                      <th className="px-4 py-3 font-bold">Customer Name</th>
+                                      <th className="px-4 py-3 font-bold">Mobile</th>
+                                      <th className="px-4 py-3 font-bold">Email</th>
+                                      <th className="px-4 py-3 font-bold">Preferred Date</th>
+                                      <th className="px-4 py-3 font-bold">Preferred Time</th>
+                                      <th className="px-4 py-3 font-bold">Registered On</th>
+                                      <th className="px-4 py-3 font-bold text-right">Action</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-50">
+                                    {regs.map((r) => (
+                                      <tr key={r.id} className="hover:bg-slate-50/60">
+                                        <td className="px-4 py-3 font-bold text-slate-900">{r.fullName}</td>
+                                        <td className="px-4 py-3">
+                                          <a href={`tel:${r.phone}`} className="text-[#123da5] font-semibold hover:underline">{r.phone}</a>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                          <a href={`mailto:${r.email}`} className="text-[#123da5] font-semibold hover:underline">{r.email}</a>
+                                        </td>
+                                        <td className="px-4 py-3 text-slate-700 font-medium">{r.preferredDate || '—'}</td>
+                                        <td className="px-4 py-3 text-slate-700 font-medium">{r.preferredTime || '—'}</td>
+                                        <td className="px-4 py-3 text-gray-500">{r.createdAt ? new Date(r.createdAt).toLocaleString() : '—'}</td>
+                                        <td className="px-4 py-3 text-right">
+                                          {isEditorOrHigher && (
+                                            <button
+                                              onClick={async () => {
+                                                if (window.confirm('Delete this registration record?')) {
+                                                  try { await deleteRegistration(r.id); showToast('success', 'Registration removed.'); }
+                                                  catch (e: any) { showToast('error', e.message); }
+                                                }
+                                              }}
+                                              className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition cursor-pointer"
+                                              title="Delete registration"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()
+                )}
               </div>
             )}
 

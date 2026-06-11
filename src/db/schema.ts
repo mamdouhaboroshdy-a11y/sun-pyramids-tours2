@@ -84,6 +84,21 @@ export const media = pgTable('media', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// 9. Registrations Table — customers registering interest in a specific trip/offer
+// via the public "Register Now" button (distinct from the multi-step BookingWizard).
+export const registrations = pgTable('registrations', {
+  id: text('id').primaryKey(),
+  tripId: text('trip_id').notNull(),
+  tripTitle: text('trip_title').notNull(),
+  tripType: text('trip_type').$type<'tour' | 'offer'>().default('tour').notNull(),
+  fullName: text('full_name').notNull(),
+  phone: text('phone').notNull(),
+  email: text('email').notNull(),
+  preferredDate: text('preferred_date'),
+  preferredTime: text('preferred_time'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // 8. Users Table (admin/editor accounts shown in the User Management tab)
 export const users = pgTable('users', {
   id: text('id').primaryKey(),

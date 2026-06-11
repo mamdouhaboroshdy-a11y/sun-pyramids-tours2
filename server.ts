@@ -169,6 +169,18 @@ async function startServer() {
         role TEXT NOT NULL DEFAULT 'user',
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS registrations (
+        id TEXT PRIMARY KEY,
+        trip_id TEXT NOT NULL,
+        trip_title TEXT NOT NULL,
+        trip_type TEXT NOT NULL DEFAULT 'tour',
+        full_name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        email TEXT NOT NULL,
+        preferred_date TEXT,
+        preferred_time TEXT,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
     `;
     try {
       await client.unsafe(ddl);
@@ -819,6 +831,55 @@ async function startServer() {
         await db.insert(schema.activityLogs).values(values).onConflictDoNothing();
       }
       res.json({ ...values, createdAt: new Date().toISOString() });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // -----------------------------------------------------------------
+  // 11. REGISTRATIONS API (public "Register Now" + admin tracking)
+  // -----------------------------------------------------------------
+  app.get('/api/registrations', async (req, res) => {
+    try {
+      if (!isPostgresConfigured()) return res.json([]);
+      const list = await db.select().from(schema.registrations).orderBy(desc(schema.registrations.createdAt));
+      res.json(list);
+    } catch (error: any) {
+      res.json([]);
+    }
+  });
+
+  app.post('/api/registrations', async (req, res) => {
+    try {
+      const payload = req.body;
+      const id = `reg_${Date.now()}_${Math.round(Math.random() * 1e6)}`;
+      const values = {
+        id,
+        tripId: payload.tripId || '',
+        tripTitle: payload.tripTitle || '',
+        tripType: (payload.tripType === 'offer' ? 'offer' : 'tour') as 'tour' | 'offer',
+        fullName: payload.fullName || '',
+        phone: payload.phone || '',
+        email: payload.email || '',
+        preferredDate: payload.preferredDate || '',
+        preferredTime: payload.preferredTime || '',
+      };
+      if (isPostgresConfigured()) {
+        const result = await db.insert(schema.registrations).values(values).returning();
+        return res.json(result[0]);
+      }
+      res.json({ ...values, createdAt: new Date().toISOString() });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/registrations/:id', async (req, res) => {
+    try {
+      if (isPostgresConfigured()) {
+        await db.delete(schema.registrations).where(eq(schema.registrations.id, req.params.id));
+      }
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
