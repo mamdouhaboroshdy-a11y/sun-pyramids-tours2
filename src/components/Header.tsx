@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingCart, ChevronDown, Globe, Menu, X, Gift, ShieldAlert, Key, Settings, Sparkles } from 'lucide-react';
+import { ShoppingCart, ChevronDown, Globe, Menu, X, Gift, ShieldAlert, Settings, Sparkles } from 'lucide-react';
 import { useAuth, UserRole } from '../context/AuthContext';
 import { useDb } from '../context/DbContext';
 
@@ -349,22 +349,6 @@ export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboa
                 </div>
               </div>
 
-              {/* Quick Auto-fill Assist Button for easy testing */}
-              <div className="pt-1 select-none">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginUsername('admin');
-                    setLoginPassword('admin');
-                    setLoginError('');
-                  }}
-                  className="w-full py-2.5 px-4 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-xl border border-amber-200 text-xs font-extrabold transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-                >
-                  <Key className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Auto Fill Admin Credentials (admin / admin)</span>
-                </button>
-              </div>
-
               <div className="pt-2">
                 <button 
                   type="submit"
@@ -382,10 +366,6 @@ export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboa
                 </button>
               </div>
 
-              <div className="text-[10px] text-center text-slate-400 bg-slate-50 p-3 rounded-xl border border-slate-100/50 leading-normal">
-                Credentials are set strictly as:<br/>
-                Username: <span className="text-[#123da5] font-extrabold select-all">admin</span> &bull; Password: <span className="text-[#123da5] font-extrabold select-all">admin</span>
-              </div>
             </form>
           </div>
         </div>

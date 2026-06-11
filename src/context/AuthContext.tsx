@@ -193,8 +193,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const cleanUser = username.trim().toLowerCase();
     const cleanPass = password.trim();
 
-    // Secure administrator credentials
-    if (cleanUser === 'admin' && cleanPass === 'admin') {
+    // Secure administrator credentials. Username is matched case-insensitively;
+    // password must match exactly.
+    if (cleanUser === 'syaed_mohamed' && cleanPass === 'Syaed_Mohamed123') {
       const adminEmail = 'admin@sunpyramidstours.com';
       const adminName = 'System Leader (Super Admin)';
       const role: UserRole = 'super_admin';
