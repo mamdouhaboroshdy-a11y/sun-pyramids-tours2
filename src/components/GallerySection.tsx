@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Play, Heart, MessageCircle, Share2, Youtube, Instagram, Facebook, Tv, X, Video } from 'lucide-react';
 import { GALLERY_ITEMS } from '../data';
+import { useLanguage } from '../context/LanguageContext';
 
 interface GalleryItem {
   id: string;
@@ -12,6 +13,7 @@ interface GalleryItem {
 }
 
 export default function GallerySection() {
+  const { t } = useLanguage();
   const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
   const [likes, setLikes] = useState<{ [key: string]: number }>({
     g1: 1845,
@@ -40,10 +42,10 @@ export default function GallerySection() {
         {/* Gallery Title with subtext from screenshot 5 */}
         <div className="text-center mb-12 sm:mb-16">
           <h2 className="text-3.5xl sm:text-5xl font-black text-gray-900 tracking-tight leading-tight">
-            Gallery of Exciting journeys
+            {t('gallery.title')}
           </h2>
           <p className="text-sm sm:text-base text-gray-500 font-medium mt-2 max-w-2xl mx-auto">
-            Follow us on social media to see more Exciting journeys in real-time from our clients.
+            {t('gallery.subtitle')}
           </p>
         </div>
 

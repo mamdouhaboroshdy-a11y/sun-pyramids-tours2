@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { ShoppingCart, ChevronDown, Globe, Menu, X, Gift, ShieldAlert, Settings, Sparkles } from 'lucide-react';
+import { ShoppingCart, ChevronDown, Globe, Menu, X, Gift, ShieldAlert, Settings, Sparkles, Check } from 'lucide-react';
 import { useAuth, UserRole } from '../context/AuthContext';
 import { useDb } from '../context/DbContext';
+import { useLanguage } from '../context/LanguageContext';
+import { LANGUAGES } from '../i18n/translations';
 
 interface HeaderProps {
   onScrollToSection: (sectionId: string) => void;
@@ -12,10 +14,13 @@ interface HeaderProps {
 export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboard }: HeaderProps) {
   const { user, profile, signInWithGoogle, signInAsDemo, signInWithCredentials, logout } = useAuth();
   const { settings } = useDb();
+  const { t, tt, lang, setLang } = useLanguage();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [activeMenu, setActiveMenu] = useState('Home');
+  const [activeMenu, setActiveMenu] = useState('home');
   const [showSignIn, setShowSignIn] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
+  const currentLang = LANGUAGES.find((l) => l.code === lang) ?? LANGUAGES[0];
   
   // Custom credential login states
   const [loginUsername, setLoginUsername] = useState('');
@@ -25,11 +30,11 @@ export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboa
   const [showPassword, setShowPassword] = useState(false);
 
   const navigationItems = [
-    { name: 'Home', id: 'home' },
-    { name: 'Egypt Tours', id: 'easter-tours', hasDropdown: true },
-    { name: 'About Us', id: 'sustainability' },
-    { name: 'Bookings Logs', id: 'filtered-tours' },
-    { name: 'Special Offers', id: 'offers' }
+    { labelKey: 'nav.home', id: 'home' },
+    { labelKey: 'nav.egyptTours', id: 'easter-tours', hasDropdown: true },
+    { labelKey: 'nav.aboutUs', id: 'sustainability' },
+    { labelKey: 'nav.bookingsLogs', id: 'filtered-tours' },
+    { labelKey: 'nav.specialOffers', id: 'offers' }
   ];
 
   const handleDemoSignIn = async (role: UserRole) => {
@@ -49,11 +54,11 @@ export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboa
         setLoginPassword('');
         setLoginError('');
       } else {
-        setLoginError('Incorrect username or password!');
+        setLoginError(t('auth.wrongCreds'));
       }
     } catch (err) {
       console.error(err);
-      setLoginError('Authentication failed.');
+      setLoginError(t('auth.failed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -71,14 +76,14 @@ export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboa
               <Gift className="w-4 h-4 text-orange-300" />
             </span>
             <span className="text-center sm:text-left tracking-wide">
-              {settings?.promoBannerText || 'Book any tour now and get an extra excursion absolutely free!'}
+              {settings?.promoBannerText ? tt(settings.promoBannerText) : t('banner.promo')}
             </span>
           </div>
-          <button 
-            onClick={onOpenBooking} 
+          <button
+            onClick={onOpenBooking}
             className="bg-[#f08c1c] hover:bg-orange-500 text-white font-semibold px-5 py-1.5 rounded-full shadow-lg transition duration-300 hover:scale-105 active:scale-95 text-xs tracking-wider"
           >
-            Book Now
+            {t('banner.bookNow')}
           </button>
         </div>
       </div>
@@ -116,27 +121,27 @@ export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboa
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-8">
             {navigationItems.map((item) => (
-              <div key={item.name} className="relative group">
+              <div key={item.id} className="relative group">
                 <button
                   onClick={() => {
-                    setActiveMenu(item.name);
+                    setActiveMenu(item.id);
                     onScrollToSection(item.id);
                   }}
                   className={`flex items-center gap-1 font-medium text-sm transition py-2 ${
-                    activeMenu === item.name 
-                      ? 'text-[#123da5] font-bold border-b-2 border-amber-500' 
+                    activeMenu === item.id
+                      ? 'text-[#123da5] font-bold border-b-2 border-amber-500'
                       : 'text-gray-700 hover:text-[#123da5]'
                   }`}
                 >
-                  {item.name}
+                  {t(item.labelKey)}
                   {item.hasDropdown && <ChevronDown className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#123da5] transition-all" />}
                 </button>
 
                 {item.hasDropdown && (
                   <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 py-1">
-                    <button onClick={() => onScrollToSection('easter-tours')} className="w-full text-left px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-[#123da5] text-xs font-semibold">🌷 Easter Tours</button>
-                    <button onClick={() => onScrollToSection('offers')} className="w-full text-left px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-[#123da5] text-xs font-semibold">✨ Special Offers</button>
-                    <button onClick={() => onScrollToSection('filtered-tours')} className="w-full text-left px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-[#123da5] text-xs font-semibold">🚢 Excursions</button>
+                    <button onClick={() => onScrollToSection('easter-tours')} className="w-full text-left px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-[#123da5] text-xs font-semibold">{t('nav.easterTours')}</button>
+                    <button onClick={() => onScrollToSection('offers')} className="w-full text-left px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-[#123da5] text-xs font-semibold">✨ {t('nav.specialOffers')}</button>
+                    <button onClick={() => onScrollToSection('filtered-tours')} className="w-full text-left px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-[#123da5] text-xs font-semibold">{t('nav.excursions')}</button>
                   </div>
                 )}
               </div>
@@ -153,15 +158,49 @@ export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboa
                 className="flex items-center gap-2 bg-slate-900 hover:bg-[#123da5] text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-md hover:scale-105 active:scale-95 cursor-pointer border border-[#f08c1c]"
               >
                 <Settings className="w-4 h-4 text-amber-400 animate-spin-slow" />
-                <span>Admin Dashboard</span>
+                <span>{t('header.adminDashboard')}</span>
               </button>
             )}
 
-            {/* Language indicator */}
-            <button className="flex items-center gap-1.5 text-gray-700 hover:text-[#123da5] text-xs font-semibold bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-full transition">
-              <Globe className="w-4 h-4 text-[#123da5]" />
-              <span>EN - USD</span>
-            </button>
+            {/* Language selector */}
+            <div className="relative">
+              <button
+                onClick={() => setLangOpen((v) => !v)}
+                onBlur={() => setTimeout(() => setLangOpen(false), 150)}
+                aria-haspopup="listbox"
+                aria-expanded={langOpen}
+                title={t('header.language')}
+                className="flex items-center gap-1.5 text-gray-700 hover:text-[#123da5] text-xs font-semibold bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-full transition"
+              >
+                <Globe className="w-4 h-4 text-[#123da5]" />
+                <span>{currentLang.flag} {currentLang.code.toUpperCase()}</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${langOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {langOpen && (
+                <ul
+                  role="listbox"
+                  className="absolute end-0 mt-2 w-44 bg-white border border-gray-100 rounded-xl shadow-xl z-50 py-1 animate-fade-in"
+                >
+                  {LANGUAGES.map((l) => (
+                    <li key={l.code}>
+                      <button
+                        role="option"
+                        aria-selected={l.code === lang}
+                        onMouseDown={(e) => { e.preventDefault(); setLang(l.code); setLangOpen(false); }}
+                        className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition hover:bg-gray-50 ${
+                          l.code === lang ? 'text-[#123da5] bg-indigo-50/40' : 'text-gray-700'
+                        }`}
+                      >
+                        <span className="text-base leading-none">{l.flag}</span>
+                        <span className="flex-1 text-start">{l.label}</span>
+                        {l.code === lang && <Check className="w-4 h-4 text-[#123da5]" />}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             {/* Authentication Button */}
             {profile ? (
@@ -176,20 +215,20 @@ export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboa
                   <span className="text-xs font-extrabold text-slate-900 leading-none truncate max-w-[100px]">{profile.name}</span>
                   <span className="text-[9px] text-[#123da5] font-bold mt-0.5 uppercase">{profile.role}</span>
                 </div>
-                <button 
-                  onClick={logout} 
+                <button
+                  onClick={logout}
                   className="text-gray-400 hover:text-red-500 transition ml-2 text-xs font-semibold"
-                  title="Log Out"
+                  title={t('header.logout')}
                 >
-                  Logout
+                  {t('header.logout')}
                 </button>
               </div>
             ) : (
-              <button 
-                onClick={() => setShowSignIn(true)} 
+              <button
+                onClick={() => setShowSignIn(true)}
                 className="text-[#123da5] border-2 border-[#123da5] hover:bg-[#123da5] hover:text-white px-5 py-2 rounded-full text-sm font-bold transition duration-200 cursor-pointer"
               >
-                Sign In
+                {t('header.signIn')}
               </button>
             )}
           </div>
@@ -232,19 +271,38 @@ export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboa
               <div className="space-y-4">
                 {navigationItems.map((item) => (
                   <button
-                    key={item.name}
+                    key={item.id}
                     onClick={() => {
-                      setActiveMenu(item.name);
+                      setActiveMenu(item.id);
                       onScrollToSection(item.id);
                       setDrawerOpen(false);
                     }}
                     className={`block w-full text-left py-2 font-semibold text-base transition ${
-                      activeMenu === item.name ? 'text-[#123da5] font-bold border-l-4 border-[#f08c1c] pl-3' : 'text-gray-700'
+                      activeMenu === item.id ? 'text-[#123da5] font-bold border-l-4 border-[#f08c1c] pl-3' : 'text-gray-700'
                     }`}
                   >
-                    {item.name}
+                    {t(item.labelKey)}
                   </button>
                 ))}
+
+                {/* Language selector (mobile) */}
+                <div className="pt-4 mt-2 border-t border-gray-100">
+                  <span className="block text-[11px] font-black text-gray-400 uppercase tracking-wider mb-2">{t('header.language')}</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {LANGUAGES.map((l) => (
+                      <button
+                        key={l.code}
+                        onClick={() => setLang(l.code)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border transition ${
+                          l.code === lang ? 'border-[#123da5] bg-indigo-50/50 text-[#123da5]' : 'border-gray-200 text-gray-700'
+                        }`}
+                      >
+                        <span className="text-base leading-none">{l.flag}</span>
+                        <span>{l.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -255,19 +313,19 @@ export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboa
                     <span className="text-gray-900 font-extrabold text-sm block">{profile.name}</span>
                     <span className="text-[10px] bg-amber-500 text-slate-950 font-bold px-1.5 py-0.5 rounded uppercase mt-1 inline-block">{profile.role}</span>
                   </div>
-                  <button 
-                    onClick={() => { logout(); setDrawerOpen(false); }} 
+                  <button
+                    onClick={() => { logout(); setDrawerOpen(false); }}
                     className="text-red-500 font-extrabold text-sm"
                   >
-                    Logout
+                    {t('header.logout')}
                   </button>
                 </div>
               ) : (
-                <button 
-                  onClick={() => { setShowSignIn(true); setDrawerOpen(false); }} 
+                <button
+                  onClick={() => { setShowSignIn(true); setDrawerOpen(false); }}
                   className="w-full bg-[#123da5] text-white py-3 rounded-full font-bold text-center hover:bg-slate-900 transition"
                 >
-                  Sign In
+                  {t('header.signIn')}
                 </button>
               )}
             </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Calendar, CheckCircle2, Accessibility, MessageSquare, Compass, ShieldCheck } from 'lucide-react';
 import { BookingState } from '../types';
+import { useLanguage } from '../context/LanguageContext';
 
 interface HeroProps {
   onOpenBooking: () => void;
@@ -17,6 +18,7 @@ export default function Hero({
   bookingFormState,
   setBookingFormState
 }: HeroProps) {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'make' | 'find' | 'rent'>('make');
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
 
@@ -56,16 +58,16 @@ export default function Hero({
             className="block text-2xl sm:text-3.5xl font-extrabold tracking-wide drop-shadow-md text-amber-300 font-sans mb-1"
             style={{ textShadow: '2px 2px 8px rgba(0,0,0,0.45)' }}
           >
-            Get started your
+            {t('hero.getStarted')}
           </span>
-          <h1 
+          <h1
             className="text-4xl sm:text-6.5xl font-black tracking-tight leading-tight uppercase font-sans select-none drop-shadow-lg"
             style={{ textShadow: '2px 3px 12px rgba(0,0,0,0.6)' }}
           >
-            Exciting Journey With Us
+            {t('hero.title')}
           </h1>
           <p className="mt-4 text-xs sm:text-sm text-gray-200/90 font-medium max-w-2xl mx-auto drop-shadow-md tracking-wider">
-            Explore pharaonic temples, sail the tranquil Nile River, and embark on lifetime desert safaris curated by Egypt travel legends.
+            {t('hero.subtitle')}
           </p>
         </div>
 
@@ -102,7 +104,7 @@ export default function Hero({
                 : 'bg-white/70 backdrop-blur-md text-gray-700 hover:bg-white'
             }`}
           >
-            Make Your Trip
+            {t('hero.makeTrip')}
           </button>
           
           <button 
@@ -113,7 +115,7 @@ export default function Hero({
                 : 'bg-white/70 backdrop-blur-md text-gray-700 hover:bg-white'
             }`}
           >
-            Find your trip
+            {t('hero.findTrip')}
           </button>
 
           <button 
@@ -124,7 +126,7 @@ export default function Hero({
                 : 'bg-white/70 backdrop-blur-md text-gray-700 hover:bg-white'
             }`}
           >
-            Rent Car
+            {t('hero.rentCar')}
           </button>
         </div>
 
@@ -135,7 +137,7 @@ export default function Hero({
               {/* Question & Time Radios */}
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-gray-100 pb-5">
                 <span className="text-sm sm:text-base font-bold text-gray-500 font-sans">
-                  When will you be traveling?
+                  {t('hero.whenTraveling')}
                 </span>
                 
                 {/* Custom radio buttons matching image */}
@@ -158,7 +160,7 @@ export default function Hero({
                       )}
                     </span>
                     <span className={bookingFormState.travelTimeType === 'exact' ? 'text-[#f08c1c]' : 'text-gray-700'}>
-                      Have An Exact Time
+                      {t('hero.exactTime')}
                     </span>
                   </label>
 
@@ -180,7 +182,7 @@ export default function Hero({
                       )}
                     </span>
                     <span className={bookingFormState.travelTimeType === 'approximate' ? 'text-[#f08c1c]' : 'text-gray-700'}>
-                      Have An Approximate Time
+                      {t('hero.approxTime')}
                     </span>
                   </label>
 
@@ -202,7 +204,7 @@ export default function Hero({
                       )}
                     </span>
                     <span className={bookingFormState.travelTimeType === 'sure_yet' ? 'text-[#f08c1c]' : 'text-gray-700'}>
-                      Not Sure Yet
+                      {t('hero.notSure')}
                     </span>
                   </label>
                 </div>
@@ -214,7 +216,7 @@ export default function Hero({
                 <div className="md:col-span-5 relative group">
                   <div className="border border-gray-200 focus-within:border-[#123da5] rounded-2xl px-4 py-3 bg-gray-50/50 hover:bg-gray-50 transition">
                     <label className="block text-[11px] font-extrabold text-gray-500 uppercase tracking-wider mb-1">
-                      From
+                      {t('hero.from')}
                     </label>
                     <div className="flex items-center justify-between">
                       <input 
@@ -233,7 +235,7 @@ export default function Hero({
                 <div className="md:col-span-5 relative group">
                   <div className="border border-gray-200 focus-within:border-[#123da5] rounded-2xl px-4 py-3 bg-gray-50/50 hover:bg-gray-50 transition">
                     <label className="block text-[11px] font-extrabold text-gray-500 uppercase tracking-wider mb-1">
-                      To
+                      {t('hero.to')}
                     </label>
                     <div className="flex items-center justify-between">
                       <input 
@@ -253,7 +255,7 @@ export default function Hero({
                     onClick={onOpenBooking}
                     className="w-full h-14 bg-[#f08c1c] hover:bg-orange-500 active:scale-95 text-white font-extrabold rounded-2xl shadow-xl hover:shadow-orange-500/20 transition-all duration-200 text-sm tracking-wider flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    Make Trip
+                    {t('hero.makeTrip')}
                   </button>
                 </div>
               </div>
@@ -302,7 +304,7 @@ export default function Hero({
                   onClick={onOpenBooking}
                   className="sm:col-span-2 h-14 bg-[#123da5] hover:bg-blue-800 text-white font-bold rounded-2xl tracking-wider text-sm shadow-md transition"
                 >
-                  Search
+                  {t('hero.search')}
                 </button>
               </div>
             </div>

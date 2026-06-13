@@ -1,24 +1,26 @@
 import React from 'react';
 import { Mail, Phone, MapPin, Youtube, Facebook, Instagram, BadgeCheck } from 'lucide-react';
 import { useDb } from '../context/DbContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Footer() {
   const { settings } = useDb();
+  const { t } = useLanguage();
 
   const FOOTER_LINKS = [
-    { name: 'Home', sectionId: 'home', action: 'scroll' },
-    { name: 'One Day Tours', sectionId: 'filtered-tours', action: 'filter', filterVal: 'one_day' },
-    { name: 'Multi Days Tours', sectionId: 'filtered-tours', action: 'filter', filterVal: 'multi_days' },
-    { name: 'Nile Cruises', sectionId: 'filtered-tours', action: 'filter', filterVal: 'nile_cruises' },
-    { name: 'Shore Excursion', sectionId: 'filtered-tours', action: 'filter', filterVal: 'shore_excursions' },
-    { name: 'Special Offer', sectionId: 'offers', action: 'scroll', hasVerifiedBadge: true },
-    { name: 'Rent Car', action: 'whatsapp', text: 'Hello, I would like to inquire about Renting a Car in Egypt.' },
-    { name: 'About Us', sectionId: 'sustainability', action: 'scroll' },
-    { name: 'Contact Us', sectionId: 'footer', action: 'scroll' },
-    { name: 'Egypt Travel Guide', action: 'guide' },
-    { name: 'faqs', action: 'faqs' },
-    { name: 'Events', sectionId: 'easter-tours', action: 'scroll' },
-    { name: 'Accessible Travel', action: 'accessibility' },
+    { name: 'Home', labelKey: 'footer.link.home', sectionId: 'home', action: 'scroll' },
+    { name: 'One Day Tours', labelKey: 'footer.link.oneDay', sectionId: 'filtered-tours', action: 'filter', filterVal: 'one_day' },
+    { name: 'Multi Days Tours', labelKey: 'footer.link.multiDays', sectionId: 'filtered-tours', action: 'filter', filterVal: 'multi_days' },
+    { name: 'Nile Cruises', labelKey: 'footer.link.nileCruises', sectionId: 'filtered-tours', action: 'filter', filterVal: 'nile_cruises' },
+    { name: 'Shore Excursion', labelKey: 'footer.link.shore', sectionId: 'filtered-tours', action: 'filter', filterVal: 'shore_excursions' },
+    { name: 'Special Offer', labelKey: 'footer.link.specialOffer', sectionId: 'offers', action: 'scroll', hasVerifiedBadge: true },
+    { name: 'Rent Car', labelKey: 'footer.link.rentCar', action: 'whatsapp', text: 'Hello, I would like to inquire about Renting a Car in Egypt.' },
+    { name: 'About Us', labelKey: 'footer.link.about', sectionId: 'sustainability', action: 'scroll' },
+    { name: 'Contact Us', labelKey: 'footer.link.contact', sectionId: 'footer', action: 'scroll' },
+    { name: 'Egypt Travel Guide', labelKey: 'footer.link.guide', action: 'guide' },
+    { name: 'faqs', labelKey: 'footer.link.faqs', action: 'faqs' },
+    { name: 'Events', labelKey: 'footer.link.events', sectionId: 'easter-tours', action: 'scroll' },
+    { name: 'Accessible Travel', labelKey: 'footer.link.accessible', action: 'accessibility' },
   ];
 
   const handleLinkClick = (link: typeof FOOTER_LINKS[0]) => {
@@ -86,10 +88,10 @@ export default function Footer() {
             {/* Help Prompt */}
             <div className="space-y-2">
               <h4 id="help-heading" className="text-white font-extrabold text-base tracking-tight">
-                Need Our Help ?
+                {t('footer.needHelp')}
               </h4>
               <p className="text-xs text-zinc-400 leading-relaxed font-semibold">
-                We Would Happy To Help You ...
+                {t('footer.happyHelp')}
               </p>
             </div>
 
@@ -130,11 +132,11 @@ export default function Footer() {
                 </div>
                 
                 <span className="text-[10px] tracking-[0.22em] font-extrabold text-zinc-300 block uppercase">
-                  CERTIFIED
+                  {t('footer.certified')}
                 </span>
-                
+
                 <span className="text-[9.5px] text-zinc-500 font-medium tracking-normal block pt-0.5">
-                  Excellence in sustainability
+                  {t('footer.sustainabilityExcellence')}
                 </span>
               </div>
             </div>
@@ -145,7 +147,7 @@ export default function Footer() {
           <div className="md:col-span-4 space-y-6">
             <div>
               <h4 className="text-zinc-400 font-extrabold text-sm sm:text-base uppercase tracking-wider">
-                Sunpyramids Links
+                {t('footer.links')}
               </h4>
               <div className="h-[2px] w-12 bg-[#f08c1c] mt-2.5" />
             </div>
@@ -158,7 +160,7 @@ export default function Footer() {
                     className="hover:text-amber-400 transition-all duration-200 flex items-center gap-1.5 text-left cursor-pointer relative group"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-zinc-800 group-hover:bg-amber-400 transition-all shrink-0" />
-                    <span>{link.name}</span>
+                    <span>{t(link.labelKey)}</span>
                     {link.hasVerifiedBadge && (
                       <BadgeCheck className="w-4 h-4 text-emerald-400 shrink-0 inline" />
                     )}
@@ -172,7 +174,7 @@ export default function Footer() {
           <div className="md:col-span-4 space-y-6">
             <div>
               <h4 className="text-zinc-400 font-extrabold text-sm sm:text-base uppercase tracking-wider">
-                Contact Info
+                {t('footer.contactInfo')}
               </h4>
               <div className="h-[2px] w-12 bg-[#f08c1c] mt-2.5" />
             </div>
@@ -238,11 +240,11 @@ export default function Footer() {
 
       {/* Copyright Bottom Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2 text-zinc-500 font-semibold text-xs flex flex-col sm:flex-row items-center justify-between gap-4">
-        <span>All rights reserved to sunpyramids company, Egypt ©2024</span>
-        
+        <span>{t('footer.rights')}</span>
+
         <div className="flex gap-6 sm:gap-10">
-          <a href="#" className="hover:text-zinc-300 transition-colors">Privacy and Cookies</a>
-          <a href="#" className="hover:text-zinc-300 transition-colors">Terms and Conditions</a>
+          <a href="#" className="hover:text-zinc-300 transition-colors">{t('footer.privacy')}</a>
+          <a href="#" className="hover:text-zinc-300 transition-colors">{t('footer.terms')}</a>
         </div>
       </div>
 
@@ -255,7 +257,7 @@ export default function Footer() {
           ★
         </div>
         <span className="text-[10px] tracking-wide font-black uppercase [writing-mode:vertical-lr] rotate-180 flex items-center justify-center gap-1">
-          Excellent Reviews
+          {t('footer.excellentReviews')}
         </span>
       </div>
 

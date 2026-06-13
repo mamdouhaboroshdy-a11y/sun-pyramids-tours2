@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -241,6 +242,106 @@ async function startServer() {
       uploadDir: UPLOAD_DIR,
       timestamp: new Date().toISOString()
     });
+  });
+
+  // -----------------------------------------------------------------
+  // 1b. TRANSLATION API (dynamic content -> RU / IT / AR)
+  // -----------------------------------------------------------------
+  // Translates DB-sourced strings (tour titles, locations, descriptions...)
+  // on demand via Google Gemini. Results are cached in-memory so each unique
+  // (text, language) pair is translated only once per server lifetime.
+  // Gracefully falls back to returning the original text when no
+  // GEMINI_API_KEY is configured or the provider errors — the site never
+  // breaks, it just shows the source language until a key is added.
+  const LANG_NAMES: Record<string, string> = {
+    ru: 'Russian', it: 'Italian', ar: 'Arabic', en: 'English',
+  };
+  const translationCache = new Map<string, string>(); // key: `${target}::${text}`
+  let genaiClient: any = null;
+  let genaiInitTried = false;
+
+  const getGenAI = async () => {
+    if (genaiInitTried) return genaiClient;
+    genaiInitTried = true;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.API_KEY;
+    if (!apiKey) {
+      console.warn('[TRANSLATE] No GEMINI_API_KEY set — dynamic translation disabled (falling back to source text).');
+      return null;
+    }
+    try {
+      const mod: any = await import('@google/genai');
+      const GoogleGenAI = mod.GoogleGenAI || mod.default?.GoogleGenAI;
+      genaiClient = new GoogleGenAI({ apiKey });
+    } catch (e) {
+      console.error('[TRANSLATE] Failed to initialise @google/genai:', e);
+      genaiClient = null;
+    }
+    return genaiClient;
+  };
+
+  app.post('/api/translate', async (req, res) => {
+    try {
+      const target = String(req.body?.target || '').toLowerCase();
+      const texts: string[] = Array.isArray(req.body?.texts) ? req.body.texts.map((t: any) => String(t ?? '')) : [];
+      if (!LANG_NAMES[target] || target === 'en' || texts.length === 0) {
+        return res.json({ translations: texts });
+      }
+
+      // Resolve from cache first; only translate the misses.
+      const result: string[] = new Array(texts.length);
+      const missIdx: number[] = [];
+      texts.forEach((tx, i) => {
+        const cached = translationCache.get(`${target}::${tx}`);
+        if (cached !== undefined) result[i] = cached;
+        else { missIdx.push(i); }
+      });
+
+      if (missIdx.length > 0) {
+        const ai = await getGenAI();
+        if (!ai) {
+          // No provider — echo originals for the misses.
+          missIdx.forEach((i) => { result[i] = texts[i]; });
+        } else {
+          const toTranslate = missIdx.map((i) => texts[i]);
+          const prompt =
+            `You are a professional translator for a travel/tourism website. ` +
+            `Translate each string in the following JSON array into ${LANG_NAMES[target]}. ` +
+            `Keep it natural, concise and suitable for tourism marketing. ` +
+            `Preserve any emojis, numbers, and proper nouns/place names appropriately. ` +
+            `Return ONLY a JSON array of the translated strings, in the same order, with the same length. ` +
+            `Input: ${JSON.stringify(toTranslate)}`;
+          try {
+            const response: any = await ai.models.generateContent({
+              model: 'gemini-2.5-flash',
+              contents: prompt,
+              config: { responseMimeType: 'application/json' },
+            });
+            const raw = (response?.text ?? '').trim();
+            let parsed: string[] = [];
+            try {
+              parsed = JSON.parse(raw);
+            } catch {
+              const m = raw.match(/\[[\s\S]*\]/);
+              parsed = m ? JSON.parse(m[0]) : [];
+            }
+            missIdx.forEach((origIdx, k) => {
+              const translated = (Array.isArray(parsed) && typeof parsed[k] === 'string') ? parsed[k] : texts[origIdx];
+              result[origIdx] = translated;
+              translationCache.set(`${target}::${texts[origIdx]}`, translated);
+            });
+          } catch (e) {
+            console.error('[TRANSLATE] Gemini request failed (falling back to source):', e);
+            missIdx.forEach((i) => { result[i] = texts[i]; });
+          }
+        }
+      }
+
+      res.json({ translations: result });
+    } catch (e: any) {
+      console.error('[TRANSLATE] error:', e);
+      // Never break the client — return originals if anything goes wrong.
+      res.json({ translations: Array.isArray(req.body?.texts) ? req.body.texts : [] });
+    }
   });
 
   // -----------------------------------------------------------------

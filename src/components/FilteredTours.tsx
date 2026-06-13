@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDb } from '../context/DbContext';
+import { useLanguage } from '../context/LanguageContext';
 import { TourPackage } from '../types';
 import TourCard from './TourCard';
 
@@ -9,6 +10,7 @@ interface FilteredToursProps {
 
 export default function FilteredTours({ onBook }: FilteredToursProps) {
   const { categories, tours } = useDb();
+  const { t: tr, tt } = useLanguage();
   const [activeTab, setActiveTab] = useState<string>('');
   const [visibleCount, setVisibleCount] = useState<number>(8);
 
@@ -67,7 +69,7 @@ export default function FilteredTours({ onBook }: FilteredToursProps) {
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
-                  {cat.name}
+                  {tt(cat.name)}
                 </button>
               );
             })}
@@ -86,8 +88,8 @@ export default function FilteredTours({ onBook }: FilteredToursProps) {
         {/* Handle Empty State gracefully */}
         {currentToursList.length === 0 && (
           <div className="text-center py-20 text-gray-400">
-            <p className="text-sm font-semibold">There are no active tour packages available in this category at the moment.</p>
-            <p className="text-xs text-gray-500 mt-1">Please contact the administrator or add a new tour to this category in the Admin Dashboard.</p>
+            <p className="text-sm font-semibold">{tr('filtered.empty1')}</p>
+            <p className="text-xs text-gray-500 mt-1">{tr('filtered.empty2')}</p>
           </div>
         )}
 
@@ -102,7 +104,7 @@ export default function FilteredTours({ onBook }: FilteredToursProps) {
               onClick={loadMore}
               className="relative z-10 bg-[#f08c1c] hover:bg-orange-600 text-white font-extrabold text-xs sm:text-sm px-7 py-3.5 rounded-full shadow-lg hover:shadow-orange-500/20 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer uppercase tracking-wider"
             >
-              <span>{visibleCount >= currentToursList.length ? 'Show Less' : 'See More'}</span>
+              <span>{visibleCount >= currentToursList.length ? tr('filtered.showLess') : tr('filtered.seeMore')}</span>
               <span className={`transform transition duration-300 ${visibleCount >= currentToursList.length ? 'rotate-180' : 'rotate-0'}`}>
                 ▼
               </span>
