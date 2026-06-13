@@ -1,5 +1,6 @@
 import React from 'react';
 import { useDb } from '../context/DbContext';
+import { useLanguage } from '../context/LanguageContext';
 import { TourPackage } from '../types';
 import TourCard from './TourCard';
 
@@ -9,6 +10,7 @@ interface EasterToursProps {
 
 export default function EasterTours({ onBook }: EasterToursProps) {
   const { tours } = useDb();
+  const { t: tr } = useLanguage();
 
   // Filter tours where isEasterSpecial is true
   const easterToursFiltered = tours.filter(t => t.isEasterSpecial);
@@ -24,13 +26,13 @@ export default function EasterTours({ onBook }: EasterToursProps) {
         <div className="text-center mb-12 sm:mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 rounded-full border border-amber-200/40 mb-3">
             <span className="w-1.5 h-1.5 rounded-full bg-[#f08c1c]" />
-            <span className="text-xs font-bold text-amber-800 uppercase tracking-widest">Seasonal Holiday / Spring Specials</span>
+            <span className="text-xs font-bold text-amber-800 uppercase tracking-widest">{tr('easter.badge')}</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-black text-gray-900 tracking-tight leading-tight">
-            Egypt Easter & Spring Tours
+            {tr('easter.title')}
           </h2>
           <p className="text-sm sm:text-base text-gray-500 font-medium max-w-2xl mx-auto mt-3 font-sans">
-            Experience the ultimate historical adventure during Spring. Enjoy curated packages covering the Pyramids, magnificent Pharaonic temples, and luxury Nile cruises.
+            {tr('easter.subtitle')}
           </p>
         </div>
 

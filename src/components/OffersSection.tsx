@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Percent, Clock, MapPin, Heart, Flame, Images } from 'lucide-react';
 import { useDb, SpecialOffer } from '../context/DbContext';
+import { useLanguage } from '../context/LanguageContext';
 import MediaGalleryModal from './MediaGalleryModal';
 import RegistrationModal from './RegistrationModal';
+import TourDetailsModal from './TourDetailsModal';
+import { Maximize2 } from 'lucide-react';
 
 interface OffersSectionProps {
   onBook: (offer: SpecialOffer) => void;
@@ -10,9 +13,11 @@ interface OffersSectionProps {
 
 export default function OffersSection({ onBook }: OffersSectionProps) {
   const { offers } = useDb();
+  const { t, tt } = useLanguage();
   const [savedStatus, setSavedStatus] = useState<{ [key: string]: boolean }>({});
   const [galleryOffer, setGalleryOffer] = useState<SpecialOffer | null>(null);
   const [registerOffer, setRegisterOffer] = useState<SpecialOffer | null>(null);
+  const [detailsOffer, setDetailsOffer] = useState<SpecialOffer | null>(null);
 
   const [secondsLeft, setSecondsLeft] = useState<number>(3 * 24 * 3600 + 12 * 3600 + 44 * 60 + 55);
 
@@ -52,13 +57,13 @@ export default function OffersSection({ onBook }: OffersSectionProps) {
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-100 rounded-full border border-orange-200/40 mb-3 animate-bounce">
             <Percent className="w-4 h-4 text-orange-600" />
-            <span className="text-xs font-bold text-orange-850 uppercase tracking-widest font-mono">Flash Discounts / Hot Deals</span>
+            <span className="text-xs font-bold text-orange-850 uppercase tracking-widest font-mono">{t('offers.badge')}</span>
           </div>
           <h2 className="text-3.5xl sm:text-5xl font-black text-gray-900 tracking-tight leading-tight flex items-center justify-center gap-2">
-            ✨ Special Offers For You
+            {t('offers.title')}
           </h2>
           <p className="text-sm sm:text-base text-gray-500 font-medium max-w-2xl mx-auto mt-2 font-sans">
-            Save massive value now; we have applied a limited discount on top boutique hotels, day-excursions, and custom Spring itineraries!
+            {t('offers.subtitle')}
           </p>
         </div>
 
@@ -121,21 +126,35 @@ export default function OffersSection({ onBook }: OffersSectionProps) {
                 <div className="p-5 flex-grow flex flex-col justify-between">
                   <div className="space-y-4">
                     {/* Title */}
-                    <h3 className="text-sm sm:text-base font-black text-gray-900 leading-snug tracking-tight hover:text-[#123da5] transition line-clamp-2">
-                      {offer.title}
-                    </h3>
+                    <div className="flex items-start gap-1.5">
+                      <h3
+                        onClick={() => setDetailsOffer(offer)}
+                        title={tt(offer.title)}
+                        className="flex-1 text-sm sm:text-base font-black text-gray-900 leading-snug tracking-tight hover:text-[#123da5] transition line-clamp-2 cursor-pointer"
+                      >
+                        {tt(offer.title)}
+                      </h3>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDetailsOffer(offer); }}
+                        title={t('tour.fullDetails')}
+                        aria-label={t('tour.fullDetails')}
+                        className="shrink-0 mt-0.5 p-1.5 rounded-lg text-gray-400 hover:text-[#123da5] hover:bg-gray-50 transition cursor-pointer"
+                      >
+                        <Maximize2 className="w-4 h-4" />
+                      </button>
+                    </div>
 
                     {/* Meta labels */}
                     <div className="flex flex-wrap gap-1.5">
                       {offer.cities && (
                         <span className="inline-flex items-center gap-1 bg-teal-50 text-teal-800 text-[10px] sm:text-[11px] font-extrabold px-3 py-1 rounded-full">
                           <MapPin className="w-3 h-3 text-teal-600" />
-                          {offer.cities}
+                          {tt(String(offer.cities))}
                         </span>
                       )}
                       {offer.location && (
                         <span className="inline-flex bg-amber-50 text-amber-800 text-[10px] sm:text-[11px] font-extrabold px-3 py-1 rounded-full">
-                          {offer.location}
+                          {tt(offer.location)}
                         </span>
                       )}
                     </div>
@@ -167,7 +186,7 @@ export default function OffersSection({ onBook }: OffersSectionProps) {
                   {/* Price display with crossed out initial value */}
                   <div className="flex items-center justify-between border-t border-gray-50 pt-4 mt-5">
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider">Start From</span>
+                      <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider">{t('tour.from')}</span>
                       <div className="flex items-baseline gap-1.5 flex-wrap">
                         <span className="text-[#123da5] font-black text-base sm:text-lg">
                           ${offer.price}
@@ -182,7 +201,7 @@ export default function OffersSection({ onBook }: OffersSectionProps) {
 
                     <div className="flex items-center gap-1.5 border border-gray-150 px-3 py-1.5 rounded-full text-xs font-bold text-gray-600">
                       <Clock className="w-3.5 h-3.5 text-[#123da5]" />
-                      <span>{offer.duration || 'Flexible'}</span>
+                      <span>{offer.duration ? tt(offer.duration) : 'Flexible'}</span>
                     </div>
                   </div>
 
@@ -191,7 +210,7 @@ export default function OffersSection({ onBook }: OffersSectionProps) {
                     onClick={(e) => { e.stopPropagation(); setRegisterOffer(offer); }}
                     className="mt-4 w-full bg-[#123da5] hover:bg-blue-800 text-white font-extrabold py-2.5 rounded-full text-xs transition active:scale-[0.99] cursor-pointer shadow-sm"
                   >
-                    Register Now
+                    {t('tour.registerNow')}
                   </button>
 
                 </div>
@@ -229,6 +248,22 @@ export default function OffersSection({ onBook }: OffersSectionProps) {
         isOpen={!!registerOffer}
         onClose={() => setRegisterOffer(null)}
         trip={registerOffer ? { id: registerOffer.id, title: registerOffer.title, type: 'offer' } : null}
+      />
+
+      <TourDetailsModal
+        isOpen={!!detailsOffer}
+        onClose={() => setDetailsOffer(null)}
+        tour={detailsOffer ? {
+          title: detailsOffer.title,
+          description: (detailsOffer as { description?: string }).description,
+          image: detailsOffer.image,
+          cities: detailsOffer.cities,
+          location: detailsOffer.location,
+          duration: detailsOffer.duration,
+          tags: detailsOffer.tags,
+          price: detailsOffer.price,
+        } : null}
+        onBook={detailsOffer ? () => onBook(detailsOffer) : undefined}
       />
     </section>
   );

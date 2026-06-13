@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;950&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;950&family=Space+Grotesk:wght@400;500;600;700&family=Cairo:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -23,4 +23,13 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ---- RTL support (Arabic) ------------------------------------------------ */
+/* Use a font with strong Arabic coverage and improve readability in RTL. */
+html[dir="rtl"] body {
+  font-family: "Cairo", "Noto Sans Arabic", "Inter", system-ui, sans-serif;
+}
+/* Flip text alignment defaults so left-aligned blocks read naturally in RTL. */
+html[dir="rtl"] .text-left { text-align: right; }
+html[dir="rtl"] .text-right { text-align: left; }
 
