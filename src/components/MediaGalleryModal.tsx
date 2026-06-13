@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ChevronLeft, ChevronRight, Play } from 'lucide-react';
 
 export interface GalleryItem {
@@ -43,7 +44,7 @@ export default function MediaGalleryModal({ isOpen, onClose, title, images = [],
   const current = items[Math.min(index, items.length - 1)];
   const go = (dir: number) => setIndex((i) => (i + dir + items.length) % items.length);
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-sm flex flex-col font-sans"
       onClick={onClose}
@@ -129,6 +130,7 @@ export default function MediaGalleryModal({ isOpen, onClose, title, images = [],
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }

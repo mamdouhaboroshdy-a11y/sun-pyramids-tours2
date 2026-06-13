@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X, MapPin, Clock, Tag, CalendarCheck } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -25,9 +26,9 @@ export default function TourDetailsModal({ isOpen, onClose, tour, onBook }: Tour
   const { t, tt, dir } = useLanguage();
   if (!isOpen || !tour) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md font-sans animate-fade-in"
+      className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md font-sans animate-fade-in"
       dir={dir}
       onClick={onClose}
     >
@@ -136,6 +137,7 @@ export default function TourDetailsModal({ isOpen, onClose, tour, onBook }: Tour
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

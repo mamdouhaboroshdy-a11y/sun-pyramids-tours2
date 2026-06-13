@@ -2,7 +2,10 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState,
 import { LangCode, LANGUAGES, translate } from '../i18n/translations';
 
 const STORAGE_KEY = 'spt_lang';
-const DYN_CACHE_KEY = 'spt_dyn_cache_v1';
+// v2: previous versions could cache untranslated English fallbacks (when no
+// Gemini key was set). Bumping the key discards those poisoned caches so the
+// content gets re-translated once a key is available.
+const DYN_CACHE_KEY = 'spt_dyn_cache_v2';
 
 interface LanguageContextValue {
   lang: LangCode;
@@ -47,6 +50,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const pending = useRef<Set<string>>(new Set());     // texts queued for the current flush
   const inFlight = useRef<Set<string>>(new Set());     // texts already requested (avoid dupes)
   const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Set once the server reports it can't translate (no Gemini key). Stops us
+  // from spamming the endpoint for the rest of the session; resets on reload,
+  // so adding a key + refreshing re-enables translation.
+  const providerDisabled = useRef(false);
 
   const dir = useMemo(
     () => LANGUAGES.find((l) => l.code === lang)?.dir ?? 'ltr',
@@ -86,7 +93,13 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ target: targetLang, texts }),
       });
       if (res.ok) {
-        const data = (await res.json()) as { translations?: string[] };
+        const data = (await res.json()) as { translations?: string[]; translated?: boolean };
+        // Server returned originals (no API key / provider error): don't cache,
+        // and stop trying for this session.
+        if (data.translated === false) {
+          providerDisabled.current = true;
+          return;
+        }
         const out = data.translations || [];
         const bucket = (dynCache.current[targetLang] ||= {});
         texts.forEach((tx, i) => { bucket[tx] = out[i] ?? tx; });
@@ -111,6 +124,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     const bucket = dynCache.current[lang];
     const hit = bucket?.[text];
     if (hit !== undefined) return hit;
+    // No translation provider available this session: just show the original.
+    if (providerDisabled.current) return text;
     // Not cached yet: queue for translation and show original meanwhile.
     if (!inFlight.current.has(text)) {
       pending.current.add(text);

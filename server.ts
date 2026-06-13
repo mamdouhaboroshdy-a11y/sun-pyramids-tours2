@@ -284,8 +284,13 @@ async function startServer() {
       const target = String(req.body?.target || '').toLowerCase();
       const texts: string[] = Array.isArray(req.body?.texts) ? req.body.texts.map((t: any) => String(t ?? '')) : [];
       if (!LANG_NAMES[target] || target === 'en' || texts.length === 0) {
-        return res.json({ translations: texts });
+        return res.json({ translations: texts, translated: false });
       }
+
+      // `translated` tells the client whether these are REAL translations. When
+      // false (no API key / provider error), the client must NOT cache them so
+      // it retries once a key becomes available.
+      let translated = true;
 
       // Resolve from cache first; only translate the misses.
       const result: string[] = new Array(texts.length);
@@ -300,6 +305,7 @@ async function startServer() {
         const ai = await getGenAI();
         if (!ai) {
           // No provider — echo originals for the misses.
+          translated = false;
           missIdx.forEach((i) => { result[i] = texts[i]; });
         } else {
           const toTranslate = missIdx.map((i) => texts[i]);
@@ -331,16 +337,17 @@ async function startServer() {
             });
           } catch (e) {
             console.error('[TRANSLATE] Gemini request failed (falling back to source):', e);
+            translated = false;
             missIdx.forEach((i) => { result[i] = texts[i]; });
           }
         }
       }
 
-      res.json({ translations: result });
+      res.json({ translations: result, translated });
     } catch (e: any) {
       console.error('[TRANSLATE] error:', e);
       // Never break the client — return originals if anything goes wrong.
-      res.json({ translations: Array.isArray(req.body?.texts) ? req.body.texts : [] });
+      res.json({ translations: Array.isArray(req.body?.texts) ? req.body.texts : [], translated: false });
     }
   });
 

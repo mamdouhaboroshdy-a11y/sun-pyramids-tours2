@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, User, Phone, Mail, Calendar, Clock, CheckCircle2, Loader2 } from 'lucide-react';
 import { useDb } from '../context/DbContext';
 
@@ -57,7 +58,7 @@ export default function RegistrationModal({ isOpen, onClose, trip }: Registratio
   const field = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm({ ...form, [key]: e.target.value });
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 font-sans" onClick={onClose}>
       <div
         className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto"
@@ -148,6 +149,7 @@ export default function RegistrationModal({ isOpen, onClose, trip }: Registratio
           </form>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
