@@ -26,7 +26,13 @@ export default function TourCard({ tour, onBook }: TourCardProps) {
   const hasGallery = mediaCount > 1 || galleryVideos.length > 0;
 
   return (
-    <div className="bg-white rounded-[26px] border border-gray-100/80 shadow-md hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 overflow-hidden flex flex-col group h-full font-sans">
+    <>
+    <div
+      onClick={() => setDetailsOpen(true)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter') setDetailsOpen(true); }}
+      className="bg-white rounded-[26px] border border-gray-100/80 shadow-md hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 overflow-hidden flex flex-col group h-full font-sans cursor-pointer">
       
       {/* Image container with floating widgets */}
       <div className="relative aspect-video w-full overflow-hidden bg-gray-100">
@@ -139,6 +145,8 @@ export default function TourCard({ tour, onBook }: TourCardProps) {
         </button>
       </div>
 
+    </div>
+
       <RegistrationModal
         isOpen={registerOpen}
         onClose={() => setRegisterOpen(false)}
@@ -160,6 +168,8 @@ export default function TourCard({ tour, onBook }: TourCardProps) {
           title: tour.title,
           description,
           image: tour.image,
+          images: galleryImages,
+          videos: galleryVideos,
           cities: tour.cities,
           location: tour.location,
           duration: tour.duration,
@@ -168,6 +178,6 @@ export default function TourCard({ tour, onBook }: TourCardProps) {
         }}
         onBook={() => onBook(tour)}
       />
-    </div>
+    </>
   );
 }

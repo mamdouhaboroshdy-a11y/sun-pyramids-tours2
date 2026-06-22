@@ -9,6 +9,7 @@ export interface TourPackage {
   tags: string[];
   duration: string;
   price: number;
+  description?: string | null;
 }
 
 export interface SpecialOffer extends TourPackage {

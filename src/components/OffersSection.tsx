@@ -73,8 +73,8 @@ export default function OffersSection({ onBook }: OffersSectionProps) {
             const isSaved = savedStatus[offer.id] || false;
             return (
               <div 
-                key={offer.id} 
-                onClick={() => onBook(offer as any)}
+                key={offer.id}
+                onClick={() => setDetailsOffer(offer)}
                 className="bg-white rounded-[28px] border border-gray-100 shadow-md hover:shadow-xl hover:-translate-y-1 transition duration-200 overflow-hidden flex flex-col justify-between group h-full relative cursor-pointer"
               >
                 
@@ -257,11 +257,14 @@ export default function OffersSection({ onBook }: OffersSectionProps) {
           title: detailsOffer.title,
           description: (detailsOffer as { description?: string }).description,
           image: detailsOffer.image,
+          images: (detailsOffer.images && detailsOffer.images.length > 0) ? detailsOffer.images : (detailsOffer.image ? [detailsOffer.image] : []),
+          videos: detailsOffer.videos || [],
           cities: detailsOffer.cities,
           location: detailsOffer.location,
           duration: detailsOffer.duration,
           tags: detailsOffer.tags,
           price: detailsOffer.price,
+          originalPrice: detailsOffer.originalPrice,
         } : null}
         onBook={detailsOffer ? () => onBook(detailsOffer) : undefined}
       />
