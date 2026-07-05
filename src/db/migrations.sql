@@ -34,6 +34,17 @@ ALTER TABLE tours ADD COLUMN IF NOT EXISTS is_online BOOLEAN NOT NULL DEFAULT TR
 -- Existing databases: add the stable display-order column (backfilled by the server on startup)
 ALTER TABLE tours ADD COLUMN IF NOT EXISTS sort_order DOUBLE PRECISION;
 
+-- 2b. Create Homepage Gallery Slots Table
+CREATE TABLE IF NOT EXISTS gallery_items (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    category TEXT NOT NULL,
+    image TEXT NOT NULL,
+    video_url TEXT NOT NULL DEFAULT '',
+    media_type TEXT NOT NULL DEFAULT 'youtube',
+    position INTEGER NOT NULL DEFAULT 0
+);
+
 -- 3. Create Special Offers Table
 CREATE TABLE IF NOT EXISTS special_offers (
     id TEXT PRIMARY KEY,

@@ -4,7 +4,7 @@ import {
   Image, FileText, Settings, Plus, Edit2, Trash2, Check,
   AlertTriangle, Play, RefreshCw, Key, ChevronDown, UserCheck, Eye, EyeOff, LogOut
 } from 'lucide-react';
-import { useDb, CategoryModel, TourModel, BookingModel, MediaModel, SpecialOffer, SettingModel } from '../context/DbContext';
+import { useDb, CategoryModel, TourModel, BookingModel, MediaModel, SpecialOffer, SettingModel, GalleryItemModel } from '../context/DbContext';
 import { useAuth, UserRole } from '../context/AuthContext';
 import MediaUploader from './MediaUploader';
 import { uploadFiles } from '../lib/api';
@@ -14,12 +14,13 @@ interface AdminDashboardProps {
   onClose: () => void;
 }
 
-type TabType = 'tours' | 'offers' | 'categories' | 'bookings' | 'registrations' | 'users' | 'media' | 'logs' | 'settings';
+type TabType = 'tours' | 'offers' | 'categories' | 'bookings' | 'registrations' | 'users' | 'media' | 'gallery' | 'logs' | 'settings';
 
 export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps) {
   const { profile, logout } = useAuth();
   const {
     categories, tours, offers, bookings, registrations, activityLogs, media, settings,
+    galleryItems, updateGalleryItem,
     seedDatabase, isDbEmpty, dbLoaded,
     addCategory, updateCategory, deleteCategory,
     addTour, updateTour, deleteTour,
@@ -61,6 +62,11 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
   const [mediaForm, setMediaForm] = useState({ name: '', url: '' });
   const [mediaUploading, setMediaUploading] = useState(false);
 
+  // 4b. Homepage Gallery Forms (one per fixed slot g1..g5)
+  const [galleryForms, setGalleryForms] = useState<{ [id: string]: Partial<GalleryItemModel> }>({});
+  const [galleryFormsReady, setGalleryFormsReady] = useState(false);
+  const [galleryUploadingId, setGalleryUploadingId] = useState<string | null>(null);
+
   // 5. Settings Form
   const [settingsForm, setSettingsForm] = useState<SettingModel>({
     siteName: '', phone: '', email: '', whatsapp: '', location: '', facebook: '', instagram: '', promoBannerText: ''
@@ -79,6 +85,17 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
       setSettingsForm(settings);
     }
   }, [settings]);
+
+  // Populate the gallery slot forms once when the items first load, so the
+  // 20s background refresh never overwrites what the admin is typing.
+  useEffect(() => {
+    if (!galleryFormsReady && galleryItems.length > 0) {
+      const forms: { [id: string]: Partial<GalleryItemModel> } = {};
+      galleryItems.forEach(g => { forms[g.id] = { title: g.title, category: g.category, image: g.image, videoUrl: g.videoUrl }; });
+      setGalleryForms(forms);
+      setGalleryFormsReady(true);
+    }
+  }, [galleryItems, galleryFormsReady]);
 
   if (!isOpen) return null;
 
@@ -172,6 +189,45 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
         : 'Tour is now OFFLINE — hidden from customers until you re-enable it.');
     } catch (e: any) {
       showToast('error', e.message);
+    }
+  };
+
+  // Homepage Gallery slot operations
+  const handleGallerySlotSave = async (id: string) => {
+    if (!isEditorOrHigher) {
+      showToast('error', 'You do not have editor permissions to perform this operation.');
+      return;
+    }
+    const form = galleryForms[id];
+    if (!form) return;
+    setLoading(true);
+    try {
+      await updateGalleryItem(id, form);
+      showToast('success', 'Homepage gallery card updated successfully.');
+    } catch (e: any) {
+      showToast('error', e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGalleryImageUpload = async (id: string, file: File | null) => {
+    if (!file) return;
+    if (!isEditorOrHigher) {
+      showToast('error', 'You do not have editor permissions to perform this operation.');
+      return;
+    }
+    setGalleryUploadingId(id);
+    try {
+      const uploaded = await uploadFiles([file], profile?.name || 'Admin');
+      if (uploaded[0]?.url) {
+        setGalleryForms(prev => ({ ...prev, [id]: { ...prev[id], image: uploaded[0].url } }));
+        showToast('success', 'Image uploaded — press Save Card to publish it on the site.');
+      }
+    } catch (e: any) {
+      showToast('error', e.message);
+    } finally {
+      setGalleryUploadingId(null);
     }
   };
 
@@ -513,6 +569,14 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
               <span className="whitespace-nowrap">Media Manager</span>
             </button>
 
+            <button
+              onClick={() => setActiveTab('gallery')}
+              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition ${activeTab === 'gallery' ? 'bg-amber-500 text-slate-900 shadow-md' : 'hover:bg-slate-800 text-slate-300'}`}
+            >
+              <Play className="w-4 h-4 shrink-0" />
+              <span className="whitespace-nowrap">Homepage Gallery</span>
+            </button>
+
             <button 
               onClick={() => setActiveTab('logs')} 
               className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition ${activeTab === 'logs' ? 'bg-amber-500 text-slate-900 shadow-md' : 'hover:bg-slate-800 text-slate-300'}`}
@@ -805,6 +869,119 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                       <div className="p-8 text-center text-gray-400 text-xs">No tours configured. Use Quick Setup to populate template files.</div>
                     )}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 1b: HOMEPAGE GALLERY (the 5 "Gallery of Exciting journeys" cards) */}
+            {activeTab === 'gallery' && (
+              <div className="space-y-6">
+                <div className="border-b border-gray-200 pb-4">
+                  <h3 className="text-xl font-bold text-slate-900">Homepage Gallery Cards ({galleryItems.length})</h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Replace the images and texts of the 5 cards shown in the &quot;Gallery of Exciting journeys&quot; section. Upload a new photo or paste an image URL, then press Save Card.
+                  </p>
+                </div>
+
+                {!isEditorOrHigher && (
+                  <div className="p-4 bg-amber-50 text-amber-800 rounded-2xl text-xs font-semibold">
+                    * You are logged in with reader permissions. Content editing is restricted to Super Admin or Editor levels.
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+                  {[...galleryItems].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)).map((g, idx) => {
+                    const form = galleryForms[g.id] || {};
+                    const slotNames = [
+                      'Slot 1 — Large left card (YouTube Resort)',
+                      'Slot 2 — Top middle card (Video Blog)',
+                      'Slot 3 — TikTok column card',
+                      'Slot 4 — Instagram Reel column card',
+                      'Slot 5 — Bottom middle card (Facebook Adventure)'
+                    ];
+                    return (
+                      <div key={g.id} className="bg-white p-5 rounded-3xl border border-gray-200 shadow-xs space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-bold text-xs text-[#123da5]">{slotNames[idx] || `Slot ${idx + 1}`}</h4>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase">{g.mediaType}</span>
+                        </div>
+
+                        <div className="flex items-start gap-4">
+                          <img
+                            src={form.image || g.image}
+                            alt={form.title || g.title}
+                            referrerPolicy="no-referrer"
+                            className="w-28 h-28 rounded-2xl object-cover border border-gray-100 shadow-inner shrink-0"
+                          />
+                          <div className="flex-1 space-y-3">
+                            <div>
+                              <label className="block text-[10.5px] font-bold text-gray-500 mb-1">Card Title</label>
+                              <input
+                                type="text"
+                                value={form.title ?? g.title}
+                                onChange={(e) => setGalleryForms(prev => ({ ...prev, [g.id]: { ...prev[g.id], title: e.target.value } }))}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10.5px] font-bold text-gray-500 mb-1">Category Label</label>
+                              <input
+                                type="text"
+                                value={form.category ?? g.category}
+                                onChange={(e) => setGalleryForms(prev => ({ ...prev, [g.id]: { ...prev[g.id], category: e.target.value } }))}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10.5px] font-bold text-gray-500 mb-1">Image URL (or upload below)</label>
+                          <input
+                            type="text"
+                            value={form.image ?? g.image}
+                            onChange={(e) => setGalleryForms(prev => ({ ...prev, [g.id]: { ...prev[g.id], image: e.target.value } }))}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs font-mono"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10.5px] font-bold text-gray-500 mb-1">Social / Video Link (opens from the card)</label>
+                          <input
+                            type="text"
+                            value={form.videoUrl ?? g.videoUrl}
+                            onChange={(e) => setGalleryForms(prev => ({ ...prev, [g.id]: { ...prev[g.id], videoUrl: e.target.value } }))}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs font-mono"
+                          />
+                        </div>
+
+                        {isEditorOrHigher && (
+                          <div className="flex items-center gap-3 pt-1">
+                            <label className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer border transition ${galleryUploadingId === g.id ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}>
+                              {galleryUploadingId === g.id ? 'Uploading…' : '📤 Upload New Image'}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={galleryUploadingId === g.id}
+                                onChange={(e) => { handleGalleryImageUpload(g.id, e.target.files?.[0] || null); e.target.value = ''; }}
+                              />
+                            </label>
+                            <button
+                              onClick={() => handleGallerySlotSave(g.id)}
+                              disabled={loading}
+                              className="px-5 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-900 font-extrabold rounded-xl text-xs transition cursor-pointer"
+                            >
+                              💾 Save Card
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {galleryItems.length === 0 && (
+                    <div className="p-8 text-center text-gray-400 text-xs col-span-full">Gallery cards are loading… open the homepage once if this list stays empty.</div>
+                  )}
                 </div>
               </div>
             )}

@@ -172,6 +172,15 @@ async function startServer() {
         role TEXT NOT NULL DEFAULT 'user',
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS gallery_items (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        category TEXT NOT NULL,
+        image TEXT NOT NULL,
+        video_url TEXT NOT NULL DEFAULT '',
+        media_type TEXT NOT NULL DEFAULT 'youtube',
+        position INTEGER NOT NULL DEFAULT 0
+      );
       CREATE TABLE IF NOT EXISTS registrations (
         id TEXT PRIMARY KEY,
         trip_id TEXT NOT NULL,
@@ -790,6 +799,50 @@ async function startServer() {
         await db.delete(schema.bookings).where(eq(schema.bookings.id, req.params.id));
       }
       res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // -----------------------------------------------------------------
+  // 6b. HOMEPAGE GALLERY SLOTS API (the 5 "Gallery of Exciting journeys" cards)
+  // -----------------------------------------------------------------
+  const buildFallbackGallery = () =>
+    GALLERY_ITEMS.map((g, i) => ({ ...g, position: i }));
+
+  app.get('/api/gallery', async (_req, res) => {
+    try {
+      const fallback = buildFallbackGallery();
+      if (!isPostgresConfigured()) {
+        return res.json(fallback);
+      }
+      const list = await db.select().from(schema.galleryItems).orderBy(asc(schema.galleryItems.position));
+      if (list.length === 0) {
+        for (const g of fallback) {
+          await db.insert(schema.galleryItems).values(g).onConflictDoNothing();
+        }
+        return res.json(fallback);
+      }
+      res.json(list);
+    } catch (error: any) {
+      console.error('[DATABASE_ERROR] gallery list failed:', error);
+      res.json(buildFallbackGallery());
+    }
+  });
+
+  app.put('/api/gallery/:id', async (req, res) => {
+    try {
+      const payload = req.body || {};
+      const set: any = {};
+      if (typeof payload.title === 'string' && payload.title.trim()) set.title = payload.title.trim();
+      if (typeof payload.category === 'string' && payload.category.trim()) set.category = payload.category.trim();
+      if (typeof payload.image === 'string' && payload.image.trim()) set.image = payload.image.trim();
+      if (typeof payload.videoUrl === 'string') set.videoUrl = payload.videoUrl.trim();
+      if (isPostgresConfigured() && Object.keys(set).length > 0) {
+        const result = await db.update(schema.galleryItems).set(set).where(eq(schema.galleryItems.id, req.params.id)).returning();
+        return res.json(result[0] || {});
+      }
+      res.json({ id: req.params.id, ...set });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
