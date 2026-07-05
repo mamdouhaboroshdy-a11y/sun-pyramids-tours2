@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Play, Heart, MessageCircle, Share2, Youtube, Instagram, Facebook, Tv, X, Video } from 'lucide-react';
 import { GALLERY_ITEMS } from '../data';
+import { useDb } from '../context/DbContext';
 import { useLanguage } from '../context/LanguageContext';
 
 interface GalleryItem {
@@ -14,6 +15,10 @@ interface GalleryItem {
 
 export default function GallerySection() {
   const { t } = useLanguage();
+  const { galleryItems } = useDb();
+
+  // Admin-managed cards from the database; static seed data until they load.
+  const items: GalleryItem[] = galleryItems.length >= GALLERY_ITEMS.length ? galleryItems : GALLERY_ITEMS;
   const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
   const [likes, setLikes] = useState<{ [key: string]: number }>({
     g1: 1845,
@@ -54,12 +59,12 @@ export default function GallerySection() {
           
           {/* Card 1: Kebab Skewers (Lg display left col 3 rows height) */}
           <div 
-            onClick={() => setSelectedItem(GALLERY_ITEMS[0])}
+            onClick={() => setSelectedItem(items[0])}
             className="lg:col-span-4 relative rounded-3xl overflow-hidden cursor-pointer group shadow-md hover:shadow-xl transition-all duration-300 min-h-[300px] h-full"
           >
             <img 
-              src={GALLERY_ITEMS[0].image} 
-              alt={GALLERY_ITEMS[0].title}
+              src={items[0].image} 
+              alt={items[0].title}
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
             />
@@ -79,11 +84,11 @@ export default function GallerySection() {
               {/* Bot title & status count */}
               <div className="space-y-2 mt-auto">
                 <p className="text-xs font-black text-[#f08c1c] tracking-widest uppercase">Cuisine</p>
-                <h4 className="text-white font-bold text-sm sm:text-base tracking-tight leading-snug">{GALLERY_ITEMS[0].title}</h4>
+                <h4 className="text-white font-bold text-sm sm:text-base tracking-tight leading-snug">{items[0].title}</h4>
                 <div className="flex items-center gap-4 text-white/80 text-xs">
-                  <span onClick={(e) => toggleLike(GALLERY_ITEMS[0].id, e)} className="flex items-center gap-1 hover:text-red-400">
-                    <Heart className={`w-4 h-4 ${hasLiked[GALLERY_ITEMS[0].id] ? 'text-red-500 fill-red-500' : ''}`} />
-                    {likes[GALLERY_ITEMS[0].id]}
+                  <span onClick={(e) => toggleLike(items[0].id, e)} className="flex items-center gap-1 hover:text-red-400">
+                    <Heart className={`w-4 h-4 ${hasLiked[items[0].id] ? 'text-red-500 fill-red-500' : ''}`} />
+                    {likes[items[0].id]}
                   </span>
                   <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" /> 45</span>
                 </div>
@@ -97,12 +102,12 @@ export default function GallerySection() {
             
             {/* Card 2: Flamingos */}
             <div 
-              onClick={() => setSelectedItem(GALLERY_ITEMS[1])}
+              onClick={() => setSelectedItem(items[1])}
               className="relative rounded-3xl overflow-hidden cursor-pointer group shadow-md hover:shadow-xl transition flex-grow min-h-[190px]"
             >
               <img 
-                src={GALLERY_ITEMS[1].image} 
-                alt={GALLERY_ITEMS[1].title}
+                src={items[1].image} 
+                alt={items[1].title}
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
               />
@@ -118,10 +123,10 @@ export default function GallerySection() {
                 </div>
 
                 <div className="mt-auto">
-                  <h4 className="text-white font-bold text-xs sm:text-sm tracking-tight">{GALLERY_ITEMS[1].title}</h4>
+                  <h4 className="text-white font-bold text-xs sm:text-sm tracking-tight">{items[1].title}</h4>
                   <div className="flex items-center gap-3 text-white/70 text-[10px] sm:text-xs mt-1.5">
-                    <span onClick={(e) => toggleLike(GALLERY_ITEMS[1].id, e)} className="flex items-center gap-0.5 hover:text-red-400">
-                      <Heart className={`w-3.5 h-3.5 ${hasLiked[GALLERY_ITEMS[1].id] ? 'text-red-500 fill-red-500' : ''}`} /> {likes[GALLERY_ITEMS[1].id]}
+                    <span onClick={(e) => toggleLike(items[1].id, e)} className="flex items-center gap-0.5 hover:text-red-400">
+                      <Heart className={`w-3.5 h-3.5 ${hasLiked[items[1].id] ? 'text-red-500 fill-red-500' : ''}`} /> {likes[items[1].id]}
                     </span>
                     <span>💬 89</span>
                   </div>
@@ -131,12 +136,12 @@ export default function GallerySection() {
 
             {/* Card 5: Fayoum Lake */}
             <div 
-              onClick={() => setSelectedItem(GALLERY_ITEMS[4])}
+              onClick={() => setSelectedItem(items[4])}
               className="relative rounded-3xl overflow-hidden cursor-pointer group shadow-md hover:shadow-xl transition flex-grow min-h-[190px]"
             >
               <img 
-                src={GALLERY_ITEMS[4].image} 
-                alt={GALLERY_ITEMS[4].title}
+                src={items[4].image} 
+                alt={items[4].title}
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
               />
@@ -147,10 +152,10 @@ export default function GallerySection() {
                 </div>
 
                 <div className="mt-auto">
-                  <h4 className="text-white font-bold text-xs sm:text-sm tracking-tight">{GALLERY_ITEMS[4].title}</h4>
+                  <h4 className="text-white font-bold text-xs sm:text-sm tracking-tight">{items[4].title}</h4>
                   <div className="flex items-center gap-3 text-white/70 text-[10px] sm:text-xs mt-1.5">
-                    <span onClick={(e) => toggleLike(GALLERY_ITEMS[4].id, e)} className="flex items-center gap-0.5 hover:text-red-400">
-                      <Heart className={`w-3.5 h-3.5 ${hasLiked[GALLERY_ITEMS[4].id] ? 'text-red-500 fill-red-500' : ''}`} /> {likes[GALLERY_ITEMS[4].id]}
+                    <span onClick={(e) => toggleLike(items[4].id, e)} className="flex items-center gap-0.5 hover:text-red-400">
+                      <Heart className={`w-3.5 h-3.5 ${hasLiked[items[4].id] ? 'text-red-500 fill-red-500' : ''}`} /> {likes[items[4].id]}
                     </span>
                     <span>💬 12</span>
                   </div>
@@ -162,12 +167,12 @@ export default function GallerySection() {
 
           {/* Column 3: Card 3 (Festivals of Egypt - TikTok style) */}
           <div 
-            onClick={() => setSelectedItem(GALLERY_ITEMS[2])}
+            onClick={() => setSelectedItem(items[2])}
             className="lg:col-span-2 relative rounded-3xl overflow-hidden cursor-pointer group shadow-md hover:shadow-xl transition min-h-[300px]"
           >
             <img 
-              src={GALLERY_ITEMS[2].image} 
-              alt={GALLERY_ITEMS[2].title}
+              src={items[2].image} 
+              alt={items[2].title}
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
             />
@@ -183,10 +188,10 @@ export default function GallerySection() {
               </div>
 
               <div className="mt-auto">
-                <h4 className="text-white font-extrabold text-xs tracking-tight line-clamp-3 leading-snug">{GALLERY_ITEMS[2].title}</h4>
+                <h4 className="text-white font-extrabold text-xs tracking-tight line-clamp-3 leading-snug">{items[2].title}</h4>
                 <div className="flex items-center gap-2 text-white/70 text-[10px] mt-2">
-                  <span onClick={(e) => toggleLike(GALLERY_ITEMS[2].id, e)} className="hover:text-red-550">
-                    ❤️ {likes[GALLERY_ITEMS[2].id]}
+                  <span onClick={(e) => toggleLike(items[2].id, e)} className="hover:text-red-550">
+                    ❤️ {likes[items[2].id]}
                   </span>
                 </div>
               </div>
@@ -196,12 +201,12 @@ export default function GallerySection() {
 
           {/* Column 4: Card 4 (Red Sea - Instagram style) */}
           <div 
-            onClick={() => setSelectedItem(GALLERY_ITEMS[3])}
+            onClick={() => setSelectedItem(items[3])}
             className="lg:col-span-2 relative rounded-3xl overflow-hidden cursor-pointer group shadow-md hover:shadow-xl transition min-h-[300px]"
           >
             <img 
-              src={GALLERY_ITEMS[3].image} 
-              alt={GALLERY_ITEMS[3].title}
+              src={items[3].image} 
+              alt={items[3].title}
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
             />
@@ -218,10 +223,10 @@ export default function GallerySection() {
               </div>
 
               <div className="mt-auto">
-                <h4 className="text-white font-bold text-xs tracking-tight line-clamp-3 leading-snug">{GALLERY_ITEMS[3].title}</h4>
+                <h4 className="text-white font-bold text-xs tracking-tight line-clamp-3 leading-snug">{items[3].title}</h4>
                 <div className="flex items-center gap-2 text-white/70 text-[10px] mt-2">
-                  <span onClick={(e) => toggleLike(GALLERY_ITEMS[3].id, e)} className="hover:text-red-550">
-                    ❤️ {likes[GALLERY_ITEMS[3].id]}
+                  <span onClick={(e) => toggleLike(items[3].id, e)} className="hover:text-red-550">
+                    ❤️ {likes[items[3].id]}
                   </span>
                 </div>
               </div>

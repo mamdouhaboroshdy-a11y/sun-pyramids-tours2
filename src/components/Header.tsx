@@ -98,14 +98,12 @@ export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboa
             className="flex items-center gap-2 cursor-pointer select-none group"
           >
             <div className="relative w-12 h-12 flex items-center justify-center">
-              <svg viewBox="0 0 100 100" className="w-full h-full transition duration-300 group-hover:scale-105">
-                <circle cx="50" cy="40" r="18" fill="#f08c1c" />
-                <path d="M 50 15 L 50 22 M 25 25 L 31 31 M 75 25 L 69 31 M 20 40 L 28 40 M 80 40 L 72 40" stroke="#f08c1c" strokeWidth="3" strokeLinecap="round" />
-                <polygon points="15,75 50,32 85,75" fill="#00a896" opacity="0.9" />
-                <polygon points="50,75 75,45 100,75" fill="#f08c1c" opacity="0.8" />
-                <polygon points="0,75 30,50 60,75" fill="#123da5" opacity="0.6" />
-                <path d="M 5 75 Q 50 85 95 75" stroke="#123da5" strokeWidth="4" fill="none" />
-              </svg>
+              {/* Official brand logo (public/logo.jpeg) */}
+              <img
+                src="/logo.jpeg"
+                alt="Official logo"
+                className="w-full h-full rounded-xl object-cover shadow-sm transition duration-300 group-hover:scale-105"
+              />
             </div>
             
             <div className="flex flex-col">

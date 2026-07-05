@@ -28,6 +28,17 @@ export const tours = pgTable('tours', {
   sortOrder: doublePrecision('sort_order'), // stable display position; NULL rows are backfilled on startup
 });
 
+// 2b. Homepage Gallery Slots ("Gallery of Exciting journeys" section — 5 fixed slots)
+export const galleryItems = pgTable('gallery_items', {
+  id: text('id').primaryKey(), // g1..g5 (slot position is fixed by `position`)
+  title: text('title').notNull(),
+  category: text('category').notNull(),
+  image: text('image').notNull(),
+  videoUrl: text('video_url').notNull().default(''),
+  mediaType: text('media_type').notNull().default('youtube'),
+  position: integer('position').notNull().default(0),
+});
+
 // 3. Special Offers Table
 export const specialOffers = pgTable('special_offers', {
   id: text('id').primaryKey(),

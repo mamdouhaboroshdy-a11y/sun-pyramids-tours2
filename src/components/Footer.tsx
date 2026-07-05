@@ -61,18 +61,13 @@ export default function Footer() {
           <div className="md:col-span-4 space-y-7">
             {/* Logo area */}
             <div className="flex items-center gap-3">
-              <div className="relative w-14 h-14 flex items-center justify-center bg-white/5 rounded-xl border border-white/5 shadow-inner">
-                {/* Custom highly polished Sun Pyramids vector logo */}
-                <svg viewBox="0 0 100 100" className="w-11 h-11">
-                  {/* Radiant Sun in Orange/Yellow */}
-                  <circle cx="50" cy="40" r="16" fill="#f08c1c" />
-                  <path d="M 50 15 L 50 21 M 26 27 L 31 32 M 74 27 L 69 32 M 20 40 L 26 40 M 80 40 L 74 40 M 30 52 L 35 48 M 70 52 L 65 48" stroke="#f08c1c" strokeWidth="2.5" strokeLinecap="round" />
-                  {/* Majestic Egypt Golden-Orange Pyramids */}
-                  <polygon points="15,75 50,30 85,75" fill="#f08c1c" opacity="0.95" />
-                  <polygon points="50,75 75,44 100,75" fill="#e27c15" opacity="0.85" />
-                  {/* Majestic Teal wave base */}
-                  <path d="M 5 75 Q 50 82 95 75 C 80 88, 20 88, 5 75 Z" fill="#00a896" />
-                </svg>
+              <div className="relative w-14 h-14 flex items-center justify-center bg-white/5 rounded-xl border border-white/5 shadow-inner overflow-hidden">
+                {/* Official brand logo (public/logo.jpeg) */}
+                <img
+                  src="/logo.jpeg"
+                  alt="Official logo"
+                  className="w-full h-full object-cover"
+                />
               </div>
               
               <div className="flex flex-col">

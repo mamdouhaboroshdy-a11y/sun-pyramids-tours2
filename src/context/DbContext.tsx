@@ -22,6 +22,17 @@ export interface TourModel extends TourPackage {
   sortOrder?: number | null; // stable grid position (assigned server-side)
 }
 
+// One of the 5 fixed cards in the homepage "Gallery of Exciting journeys" section
+export interface GalleryItemModel {
+  id: string;
+  title: string;
+  category: string;
+  image: string;
+  videoUrl: string;
+  mediaType: string;
+  position: number;
+}
+
 export interface BookingModel {
   id: string;
   tourId: string;
@@ -88,6 +99,7 @@ interface DbContextType {
   categories: CategoryModel[];
   tours: TourModel[];
   offers: SpecialOffer[];
+  galleryItems: GalleryItemModel[];
   bookings: BookingModel[];
   registrations: RegistrationModel[];
   activityLogs: ActivityLogModel[];
@@ -123,6 +135,9 @@ interface DbContextType {
   // Registration CRUD
   addRegistration: (registration: Omit<RegistrationModel, 'id' | 'createdAt'>) => Promise<void>;
   deleteRegistration: (id: string) => Promise<void>;
+
+  // Homepage gallery slots
+  updateGalleryItem: (id: string, patch: Partial<GalleryItemModel>) => Promise<void>;
 
   // Media CRUD
   addMediaAsset: (media: Omit<MediaModel, 'id' | 'uploadedBy' | 'createdAt'>) => Promise<void>;
@@ -161,6 +176,7 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<CategoryModel[]>([]);
   const [tours, setTours] = useState<TourModel[]>([]);
   const [offers, setOffers] = useState<SpecialOffer[]>([]);
+  const [galleryItems, setGalleryItems] = useState<GalleryItemModel[]>([]);
   const [bookings, setBookings] = useState<BookingModel[]>([]);
   const [registrations, setRegistrations] = useState<RegistrationModel[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLogModel[]>([]);
@@ -189,12 +205,13 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
   // --- Fetchers -----------------------------------------------------
   const fetchPublic = async () => {
     try {
-      const [cats, trs, ofs, med, setg] = await Promise.all([
+      const [cats, trs, ofs, med, setg, gal] = await Promise.all([
         apiGet<CategoryModel[]>('/categories').catch(() => []),
         apiGet<any[]>('/tours').catch(() => []),
         apiGet<any[]>('/offers').catch(() => []),
         apiGet<MediaModel[]>('/media').catch(() => []),
         apiGet<SettingModel>('/settings').catch(() => DEFAULT_SETTINGS),
+        apiGet<GalleryItemModel[]>('/gallery').catch(() => []),
       ]);
       setCategories(cats || []);
       // Defensive stable sort — keeps the grid order fixed even if the API
@@ -206,6 +223,7 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
       setTours(sortedTours);
       setOffers((ofs || []).map(normaliseOffer));
       setMedia(med || []);
+      setGalleryItems(([...(gal || [])]).sort((a, b) => (a.position ?? 0) - (b.position ?? 0)));
       setSettings({ ...DEFAULT_SETTINGS, ...(setg || {}) });
       setIsDbEmpty((trs || []).length === 0 && (ofs || []).length === 0);
     } catch (e) {
@@ -355,6 +373,13 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
     await fetchAdmin();
   };
 
+  // --- Homepage gallery slots ---------------------------------------
+  const updateGalleryItem = async (id: string, patch: Partial<GalleryItemModel>) => {
+    await apiPut(`/gallery/${id}`, patch);
+    await logAdminAction('Update Gallery Card', `Successfully updated homepage gallery card: ${patch.title || id}`);
+    await fetchPublic();
+  };
+
   // --- Media CRUD ---------------------------------------------------
   const addMediaAsset = async (newMedia: Omit<MediaModel, 'id' | 'uploadedBy' | 'createdAt'>) => {
     await apiPost('/media', { ...newMedia, uploadedBy: profile?.name || 'Anonymous' });
@@ -400,6 +425,7 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
       categories,
       tours,
       offers,
+      galleryItems,
       bookings,
       registrations,
       activityLogs,
@@ -423,6 +449,7 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
       deleteBooking,
       addRegistration,
       deleteRegistration,
+      updateGalleryItem,
       addMediaAsset,
       deleteMediaAsset,
       updateSettings,
