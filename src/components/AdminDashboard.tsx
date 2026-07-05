@@ -114,14 +114,21 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
   const isAdminOrSuper = profile?.role === 'super_admin' || profile?.role === 'admin';
   const isEditorOrHigher = profile?.role === 'super_admin' || profile?.role === 'admin' || profile?.role === 'editor';
 
-  // Admin tours list grouped by section (in category order) then by display
-  // position, so the reorder arrows match exactly what customers see on site.
-  const orderedAdminTours = [...tours].sort((a, b) => {
-    const ca = categories.findIndex(c => c.slug === a.category);
-    const cb = categories.findIndex(c => c.slug === b.category);
-    if (ca !== cb) return ca - cb;
-    return (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER);
-  });
+  // Every tour on the system, grouped by section — including tours whose
+  // section was deleted or never set — so nothing can hide from this list.
+  // `tours` is already sorted by display position.
+  const adminTourGroups = (() => {
+    const groups = categories.map(c => ({ key: c.slug, name: c.name, tours: [] as TourModel[] }));
+    const orphans: TourModel[] = [];
+    tours.forEach(t => {
+      const g = groups.find(gr => gr.key === t.category);
+      if (g) g.tours.push(t); else orphans.push(t);
+    });
+    if (orphans.length > 0) {
+      groups.push({ key: '__none__', name: '⚠ No Section — not visible in the category tabs', tours: orphans });
+    }
+    return groups.filter(g => g.tours.length > 0);
+  })();
 
   // Handler Actions
   const handleSeed = async () => {
@@ -247,8 +254,11 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
     }
     try {
       await moveTour(id, direction);
+      showToast('success', direction === 'top'
+        ? '✅ Tour moved to the top of its section.'
+        : '✅ Tour order updated successfully.');
     } catch (e: any) {
-      showToast('error', e.message);
+      showToast('error', `Reorder failed: ${e.message}`);
     }
   };
 
@@ -649,18 +659,22 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
           {/* Tab Work Panel View */}
           <main className="flex-1 p-4 md:p-8 overflow-y-auto">
             
-            {/* Status alerts */}
-            {successMsg && (
-              <div className="mb-6 p-4 bg-emerald-100 text-emerald-800 border-l-4 border-emerald-500 rounded-xl font-medium text-xs sm:text-sm shadow-sm flex items-center gap-2">
-                <Check className="w-5 h-5 shrink-0 text-emerald-600" />
-                <span>{successMsg}</span>
-              </div>
-            )}
-
-            {errorMsg && (
-              <div className="mb-6 p-4 bg-rose-100 text-rose-800 border-l-4 border-rose-500 rounded-xl font-medium text-xs sm:text-sm shadow-sm flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 shrink-0 text-rose-600" />
-                <span>{errorMsg}</span>
+            {/* Status alerts — fixed to the screen so they are always visible,
+                no matter how far down the admin has scrolled. */}
+            {(successMsg || errorMsg) && (
+              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] w-[92%] max-w-md space-y-2 pointer-events-none">
+                {successMsg && (
+                  <div className="p-4 bg-emerald-600 text-white rounded-2xl font-semibold text-xs sm:text-sm shadow-2xl flex items-center gap-2">
+                    <Check className="w-5 h-5 shrink-0" />
+                    <span>{successMsg}</span>
+                  </div>
+                )}
+                {errorMsg && (
+                  <div className="p-4 bg-rose-600 text-white rounded-2xl font-semibold text-xs sm:text-sm shadow-2xl flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 shrink-0" />
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -848,10 +862,20 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                 {/* Listing of Existing Tours */}
                 <div className="bg-white rounded-3xl border border-gray-200 shadow-xs overflow-hidden">
                   <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 font-bold text-sm text-slate-800">Published Travel Catalogs ({tours.length})</div>
-                  <div className="divide-y divide-gray-100">
-                    {orderedAdminTours.map((t) => (
+                  <div>
+                    {adminTourGroups.map((group) => (
+                      <div key={group.key}>
+                        <div className="px-6 py-2.5 bg-slate-100/90 border-y border-gray-200 text-[11px] font-black uppercase tracking-widest text-slate-500 flex items-center justify-between sticky top-0 z-10">
+                          <span>{group.name}</span>
+                          <span className="text-slate-400 normal-case tracking-normal">{group.tours.length} tours</span>
+                        </div>
+                        <div className="divide-y divide-gray-100">
+                    {group.tours.map((t, tIdx) => (
                       <div key={t.id} className="p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-4 w-full sm:w-auto">
+                          <span className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 text-[10.5px] font-black flex items-center justify-center shrink-0" title="Position inside this section">
+                            {tIdx + 1}
+                          </span>
                           <img
                             src={t.image}
                             alt={t.title}
@@ -935,6 +959,9 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                             </button>
                           </div>
                         )}
+                      </div>
+                    ))}
+                        </div>
                       </div>
                     ))}
                     {tours.length === 0 && (

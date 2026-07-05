@@ -345,6 +345,7 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
   // Reorder a tour inside its own section. We rearrange the section's tours,
   // then remap the SAME set of sort_order values onto the new arrangement —
   // so the section order changes while global interleaving stays intact.
+  // The new order is applied to the UI instantly (optimistic), then persisted.
   const moveTour = async (id: string, direction: 'up' | 'down' | 'top') => {
     const tour = tours.find(t => t.id === id);
     if (!tour) return;
@@ -353,20 +354,42 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
     const newIdx = direction === 'top' ? 0 : direction === 'up' ? idx - 1 : idx + 1;
     if (idx < 0 || newIdx < 0 || newIdx >= siblings.length || newIdx === idx) return;
 
-    // Collect stable slot values (fill any missing sort_order after the max).
+    // Collect stable slot values (coerce to numbers; fill gaps after the max).
     let maxSeen = 0;
-    siblings.forEach(t => { if (typeof t.sortOrder === 'number' && t.sortOrder > maxSeen) maxSeen = t.sortOrder; });
+    siblings.forEach(t => {
+      const so = Number(t.sortOrder);
+      if (Number.isFinite(so) && so > maxSeen) maxSeen = so;
+    });
     const slotValues = siblings
-      .map(t => (typeof t.sortOrder === 'number' ? t.sortOrder : ++maxSeen))
+      .map(t => {
+        const so = Number(t.sortOrder);
+        return Number.isFinite(so) ? so : ++maxSeen;
+      })
       .sort((a, b) => a - b);
 
     const arranged = [...siblings];
     arranged.splice(idx, 1);
     arranged.splice(newIdx, 0, tour);
+    const withValues = arranged.map((t, i) => ({ ...t, sortOrder: slotValues[i] }));
 
-    await Promise.all(arranged.map((t, i) =>
-      t.sortOrder === slotValues[i] ? Promise.resolve(null) : apiPatch(`/tours/${t.id}`, { sortOrder: slotValues[i] })
-    ));
+    // Optimistic: show the new order immediately, before the server round-trip.
+    let k = 0;
+    const optimistic = tours.map(t => (t.category === tour.category ? withValues[k++] : t));
+    setIfChanged('tours', optimistic, setTours);
+
+    try {
+      await Promise.all(withValues.map((t, i) => {
+        const original = siblings.find(s => s.id === t.id);
+        return Number(original?.sortOrder) === slotValues[i]
+          ? Promise.resolve(null)
+          : apiPatch(`/tours/${t.id}`, { sortOrder: slotValues[i] });
+      }));
+    } catch (e) {
+      // Roll back to server truth and let the caller surface the error.
+      lastJsonRef.current['tours'] = '';
+      await fetchPublic();
+      throw e;
+    }
     await logAdminAction('Reorder Tour', `Moved tour ${tour.title} ${direction === 'top' ? 'to the top of' : direction} its section`);
     await fetchPublic();
   };
@@ -377,8 +400,20 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
     const tour = tours.find(t => t.id === id);
     if (!tour || tour.category === category) return;
     let maxSort = 0;
-    tours.forEach(t => { if (typeof t.sortOrder === 'number' && t.sortOrder > maxSort) maxSort = t.sortOrder; });
-    await apiPatch(`/tours/${id}`, { category, sortOrder: maxSort + 1 });
+    tours.forEach(t => {
+      const so = Number(t.sortOrder);
+      if (Number.isFinite(so) && so > maxSort) maxSort = so;
+    });
+    // Optimistic: the tour shows up under its new section immediately.
+    const optimistic = tours.map(t => (t.id === id ? { ...t, category, sortOrder: maxSort + 1 } : t));
+    setIfChanged('tours', optimistic, setTours);
+    try {
+      await apiPatch(`/tours/${id}`, { category, sortOrder: maxSort + 1 });
+    } catch (e) {
+      lastJsonRef.current['tours'] = '';
+      await fetchPublic();
+      throw e;
+    }
     await logAdminAction('Move Tour Section', `Moved tour ${tour.title} to section: ${category}`);
     await fetchPublic();
   };
