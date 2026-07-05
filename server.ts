@@ -197,6 +197,12 @@ async function startServer() {
     try {
       await client.unsafe(ddl);
       console.log('[SCHEMA] Tables verified / created successfully.');
+      // One-time rebrand: replace the old default site name with the new brand.
+      // Only touches rows still carrying the old default, so a custom name set
+      // later by the admin is never overwritten.
+      await client.unsafe(
+        "UPDATE settings SET site_name = 'EAGLE TRIPS' WHERE key = 'general' AND site_name IN ('Sun Pyramids Tours', 'SUN PYRAMIDS');"
+      );
     } catch (e) {
       console.error('[SCHEMA] ensureSchema failed:', e);
     }
@@ -217,7 +223,7 @@ async function startServer() {
 
   const DEFAULT_SETTINGS = {
     key: 'general',
-    siteName: 'Sun Pyramids Tours',
+    siteName: 'EAGLE TRIPS',
     phone: '+20 123 456 7890',
     email: 'info@sunpyramidstours.com',
     whatsapp: '201207300811',

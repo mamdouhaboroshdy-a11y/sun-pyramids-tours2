@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingCart, ChevronDown, Globe, Menu, X, Gift, ShieldAlert, Settings, Sparkles, Check } from 'lucide-react';
+import { ShoppingCart, ChevronDown, Globe, Menu, X, Gift, ShieldAlert, Settings, Sparkles, Check, Moon, Sun } from 'lucide-react';
 import { useAuth, UserRole } from '../context/AuthContext';
 import { useDb } from '../context/DbContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -18,6 +18,17 @@ export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboa
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeMenu, setActiveMenu] = useState('home');
+  // Dark mode: the <html> class is applied before first paint by index.html,
+  // so initialise from the DOM and keep localStorage in sync on toggle.
+  const [darkMode, setDarkMode] = useState<boolean>(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  );
+  const toggleTheme = () => {
+    const next = !darkMode;
+    setDarkMode(next);
+    document.documentElement.classList.toggle('dark', next);
+    try { localStorage.setItem('theme', next ? 'dark' : 'light'); } catch { /* storage unavailable */ }
+  };
   const [showSignIn, setShowSignIn] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const currentLang = LANGUAGES.find((l) => l.code === lang) ?? LANGUAGES[0];
@@ -108,7 +119,7 @@ export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboa
             
             <div className="flex flex-col">
               <span className="text-xl font-black text-[#123da5] tracking-tight leading-none group-hover:text-amber-500 transition duration-150">
-                {settings?.siteName || 'SUN PYRAMIDS'}
+                {settings?.siteName || 'EAGLE TRIPS'}
               </span>
               <span className="text-[9px] uppercase tracking-widest text-emerald-500 font-extrabold leading-tight">
                 SINCE <span className="text-orange-500">TOURS</span> 1970
@@ -159,6 +170,17 @@ export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboa
                 <span>{t('header.adminDashboard')}</span>
               </button>
             )}
+
+            {/* Dark mode toggle */}
+            <button
+              onClick={toggleTheme}
+              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="p-2.5 rounded-full bg-gray-50 hover:bg-gray-100 transition cursor-pointer border border-gray-100"
+            >
+              {darkMode
+                ? <Sun className="w-4 h-4 text-amber-400" />
+                : <Moon className="w-4 h-4 text-[#123da5]" />}
+            </button>
 
             {/* Language selector */}
             <div className="relative">
@@ -233,6 +255,15 @@ export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboa
 
           {/* Mobile Hamburger Menu */}
           <div className="flex items-center gap-3 lg:hidden">
+            <button
+              onClick={toggleTheme}
+              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="p-2 rounded-full bg-gray-50 border border-gray-100 transition cursor-pointer"
+            >
+              {darkMode
+                ? <Sun className="w-4 h-4 text-amber-400" />
+                : <Moon className="w-4 h-4 text-[#123da5]" />}
+            </button>
             {isManager && (
               <button 
                 onClick={onOpenDashboard}
@@ -260,7 +291,7 @@ export default function Header({ onScrollToSection, onOpenBooking, onOpenDashboa
           <div className="fixed top-0 right-0 w-80 max-w-full h-full bg-white shadow-2xl p-6 overflow-y-auto flex flex-col justify-between z-10 text-left" dir="ltr">
             <div>
               <div className="flex items-center justify-between mb-8">
-                <span className="font-bold text-[#123da5] text-lg">{settings?.siteName || 'Sun Pyramids'}</span>
+                <span className="font-bold text-[#123da5] text-lg">{settings?.siteName || 'EAGLE TRIPS'}</span>
                 <button onClick={() => setDrawerOpen(false)} className="p-1 rounded-full bg-gray-100">
                   <X className="w-5 h-5 text-gray-600" />
                 </button>
