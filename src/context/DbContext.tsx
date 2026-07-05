@@ -192,6 +192,19 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
   const isAdminRef = useRef(false);
   isAdminRef.current = !!profile && (profile.role === 'super_admin' || profile.role === 'admin' || profile.role === 'editor');
 
+  // The 20s polling refresh used to replace every collection with a fresh
+  // array reference even when nothing changed, re-rendering the whole app
+  // (and making the admin dashboard feel heavy). Only push state when the
+  // payload actually differs.
+  const lastJsonRef = useRef<{ [key: string]: string }>({});
+  const setIfChanged = <T,>(key: string, value: T, setter: React.Dispatch<React.SetStateAction<T>>) => {
+    const json = JSON.stringify(value);
+    if (lastJsonRef.current[key] !== json) {
+      lastJsonRef.current[key] = json;
+      setter(value);
+    }
+  };
+
   // Normalise rows coming back from Postgres into the shapes the UI expects.
   const normaliseTour = (t: any): TourModel => ({
     ...t,
@@ -215,18 +228,18 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
         apiGet<SettingModel>('/settings').catch(() => DEFAULT_SETTINGS),
         apiGet<GalleryItemModel[]>('/gallery').catch(() => []),
       ]);
-      setCategories(cats || []);
+      setIfChanged('categories', cats || [], setCategories);
       // Defensive stable sort — keeps the grid order fixed even if the API
       // ever returns rows in a different order (e.g. after a tour is updated).
       const sortedTours = (trs || []).map(normaliseTour).sort((a: any, b: any) =>
         ((a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER)) ||
         String(a.id).localeCompare(String(b.id))
       );
-      setTours(sortedTours);
-      setOffers((ofs || []).map(normaliseOffer));
-      setMedia(med || []);
-      setGalleryItems(([...(gal || [])]).sort((a, b) => (a.position ?? 0) - (b.position ?? 0)));
-      setSettings({ ...DEFAULT_SETTINGS, ...(setg || {}) });
+      setIfChanged('tours', sortedTours, setTours);
+      setIfChanged('offers', (ofs || []).map(normaliseOffer), setOffers);
+      setIfChanged('media', med || [], setMedia);
+      setIfChanged('gallery', ([...(gal || [])]).sort((a, b) => (a.position ?? 0) - (b.position ?? 0)), setGalleryItems);
+      setIfChanged('settings', { ...DEFAULT_SETTINGS, ...(setg || {}) }, setSettings);
       setIsDbEmpty((trs || []).length === 0 && (ofs || []).length === 0);
     } catch (e) {
       console.error('Failed to load public data:', e);
@@ -237,9 +250,9 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
 
   const fetchAdmin = async () => {
     if (!isAdminRef.current) {
-      setBookings([]);
-      setRegistrations([]);
-      setActivityLogs([]);
+      setIfChanged('bookings', [] as BookingModel[], setBookings);
+      setIfChanged('registrations', [] as RegistrationModel[], setRegistrations);
+      setIfChanged('activityLogs', [] as ActivityLogModel[], setActivityLogs);
       return;
     }
     try {
@@ -248,9 +261,9 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
         apiGet<RegistrationModel[]>('/registrations').catch(() => []),
         apiGet<ActivityLogModel[]>('/logs').catch(() => []),
       ]);
-      setBookings(bks || []);
-      setRegistrations(regs || []);
-      setActivityLogs(lgs || []);
+      setIfChanged('bookings', bks || [], setBookings);
+      setIfChanged('registrations', regs || [], setRegistrations);
+      setIfChanged('activityLogs', lgs || [], setActivityLogs);
     } catch (e) {
       console.error('Failed to load admin data:', e);
     }

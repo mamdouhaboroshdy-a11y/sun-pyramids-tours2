@@ -36,10 +36,12 @@ export default function TourCard({ tour, onBook }: TourCardProps) {
       
       {/* Image container with floating widgets */}
       <div className="relative aspect-video w-full overflow-hidden bg-gray-100">
-        <img 
-          src={tour.image} 
+        <img
+          src={tour.image}
           alt={tour.title}
           referrerPolicy="no-referrer"
+          loading="lazy"
+          decoding="async"
           className="w-full h-full object-cover transition-all duration-500 group-hover:scale-105"
           onError={(e) => {
             e.currentTarget.src = 'https://images.unsplash.com/photo-1539650116574-8efeb43e2750?auto=format&fit=crop&w=800&q=80';
