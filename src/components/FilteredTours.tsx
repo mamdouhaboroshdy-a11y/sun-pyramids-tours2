@@ -13,6 +13,7 @@ export default function FilteredTours({ onBook }: FilteredToursProps) {
   const { t: tr, tt } = useLanguage();
   const [activeTab, setActiveTab] = useState<string>('');
   const [visibleCount, setVisibleCount] = useState<number>(8);
+  const [showAll, setShowAll] = useState<boolean>(false);
 
   // Initialize active tab when categories load
   useEffect(() => {
@@ -27,6 +28,7 @@ export default function FilteredTours({ onBook }: FilteredToursProps) {
       if (customEvent.detail) {
         setActiveTab(customEvent.detail);
         setVisibleCount(8);
+        setShowAll(false);
       }
     };
     window.addEventListener('setCategoryFilter', handleCategoryEvent);
@@ -36,17 +38,30 @@ export default function FilteredTours({ onBook }: FilteredToursProps) {
   const handleTabChange = (slug: string) => {
     setActiveTab(slug);
     setVisibleCount(8);
+    setShowAll(false);
   };
 
   // Filter tours matching current category slug (or id); offline tours are admin-only
   const currentToursList = tours.filter(t => t.category === activeTab && t.isOnline !== false);
-  const displayedTours = currentToursList.slice(0, visibleCount);
+
+  // Keep the grid tidy: only complete rows of 4 are shown by default, even after
+  // some tours were taken offline. The final partial row (if any) appears only
+  // once the visitor explicitly expands with "See more".
+  const total = currentToursList.length;
+  const fullRowTotal = Math.floor(total / 4) * 4;
+  const cap = fullRowTotal >= 4 ? fullRowTotal : total; // fewer than 4 tours → show what exists
+  const displayCount = showAll ? total : Math.min(visibleCount, cap);
+  const displayedTours = currentToursList.slice(0, displayCount);
+  const isFullyExpanded = displayCount >= total;
 
   const loadMore = () => {
-    if (visibleCount >= currentToursList.length) {
+    if (isFullyExpanded) {
       setVisibleCount(8);
-    } else {
+      setShowAll(false);
+    } else if (visibleCount < cap) {
       setVisibleCount(prev => prev + 4);
+    } else {
+      setShowAll(true);
     }
   };
 
@@ -94,7 +109,7 @@ export default function FilteredTours({ onBook }: FilteredToursProps) {
         )}
 
         {/* See more orange button with slider from the mockup */}
-        {currentToursList.length > 8 && (
+        {total > Math.min(8, cap) && (
           <div className="relative mt-16 flex items-center justify-center">
             <div className="absolute inset-x-0 h-[1.5px] bg-gray-200/80 z-0" />
             <div className="absolute left-0 w-3 h-3 rounded-full bg-gray-300 z-10 hidden sm:block" />
@@ -104,8 +119,8 @@ export default function FilteredTours({ onBook }: FilteredToursProps) {
               onClick={loadMore}
               className="relative z-10 bg-[#f08c1c] hover:bg-orange-600 text-white font-extrabold text-xs sm:text-sm px-7 py-3.5 rounded-full shadow-lg hover:shadow-orange-500/20 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer uppercase tracking-wider"
             >
-              <span>{visibleCount >= currentToursList.length ? tr('filtered.showLess') : tr('filtered.seeMore')}</span>
-              <span className={`transform transition duration-300 ${visibleCount >= currentToursList.length ? 'rotate-180' : 'rotate-0'}`}>
+              <span>{isFullyExpanded ? tr('filtered.showLess') : tr('filtered.seeMore')}</span>
+              <span className={`transform transition duration-300 ${isFullyExpanded ? 'rotate-180' : 'rotate-0'}`}>
                 ▼
               </span>
             </button>

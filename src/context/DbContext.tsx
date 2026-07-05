@@ -19,6 +19,7 @@ export interface TourModel extends TourPackage {
   isEasterSpecial?: boolean;
   isPopular?: boolean;
   isOnline?: boolean; // false = hidden from customers; undefined/true = visible
+  sortOrder?: number | null; // stable grid position (assigned server-side)
 }
 
 export interface BookingModel {
@@ -196,7 +197,13 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
         apiGet<SettingModel>('/settings').catch(() => DEFAULT_SETTINGS),
       ]);
       setCategories(cats || []);
-      setTours((trs || []).map(normaliseTour));
+      // Defensive stable sort — keeps the grid order fixed even if the API
+      // ever returns rows in a different order (e.g. after a tour is updated).
+      const sortedTours = (trs || []).map(normaliseTour).sort((a: any, b: any) =>
+        ((a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER)) ||
+        String(a.id).localeCompare(String(b.id))
+      );
+      setTours(sortedTours);
       setOffers((ofs || []).map(normaliseOffer));
       setMedia(med || []);
       setSettings({ ...DEFAULT_SETTINGS, ...(setg || {}) });

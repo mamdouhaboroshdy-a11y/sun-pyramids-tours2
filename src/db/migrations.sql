@@ -25,11 +25,14 @@ CREATE TABLE IF NOT EXISTS tours (
     category TEXT REFERENCES categories(slug) ON DELETE SET NULL,
     is_easter_special BOOLEAN NOT NULL DEFAULT FALSE,
     is_popular BOOLEAN NOT NULL DEFAULT FALSE,
-    is_online BOOLEAN NOT NULL DEFAULT TRUE
+    is_online BOOLEAN NOT NULL DEFAULT TRUE,
+    sort_order DOUBLE PRECISION
 );
 
 -- Existing databases: add the online/offline visibility flag
 ALTER TABLE tours ADD COLUMN IF NOT EXISTS is_online BOOLEAN NOT NULL DEFAULT TRUE;
+-- Existing databases: add the stable display-order column (backfilled by the server on startup)
+ALTER TABLE tours ADD COLUMN IF NOT EXISTS sort_order DOUBLE PRECISION;
 
 -- 3. Create Special Offers Table
 CREATE TABLE IF NOT EXISTS special_offers (

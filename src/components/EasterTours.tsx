@@ -18,8 +18,16 @@ export default function EasterTours({ onBook }: EasterToursProps) {
   // Filter tours where isEasterSpecial is true
   const easterToursFiltered = onlineTours.filter(t => t.isEasterSpecial);
 
-  // If no tour is explicitly marked, fallback to first 4 as demo
-  const displayTours = easterToursFiltered.length > 0 ? easterToursFiltered : onlineTours.slice(0, 4);
+  // Always render complete rows of 4, even after tours were taken offline:
+  // - 4+ specials → trim down to the largest multiple of 4
+  // - fewer than 4 specials → top the row up with the next online tours
+  let displayTours;
+  if (easterToursFiltered.length >= 4) {
+    displayTours = easterToursFiltered.slice(0, Math.floor(easterToursFiltered.length / 4) * 4);
+  } else {
+    const fillers = onlineTours.filter(t => !t.isEasterSpecial);
+    displayTours = [...easterToursFiltered, ...fillers].slice(0, 4);
+  }
 
   return (
     <section id="easter-tours" className="py-16 sm:py-24 bg-gray-50/40 relative font-sans">
