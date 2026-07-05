@@ -484,8 +484,10 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
     }
   };
 
+  // No backdrop-blur on this overlay: blurring the whole page behind a
+  // fullscreen scrollable panel forces constant repaints and makes scrolling heavy.
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6 bg-slate-900/80 backdrop-blur-md font-sans text-left" dir="ltr">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6 bg-slate-900/90 font-sans text-left" dir="ltr">
       <div className="bg-white w-full h-full md:max-w-7xl md:h-[90vh] md:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-200">
         
         {/* Top Header Banner */}
@@ -560,7 +562,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
 
             <button 
               onClick={() => setActiveTab('bookings')} 
-              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition ${activeTab === 'bookings' ? 'bg-amber-500 text-slate-950 shadow-md animate-pulse' : 'hover:bg-slate-800 text-slate-300'}`}
+              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition ${activeTab === 'bookings' ? 'bg-amber-500 text-slate-950 shadow-md' : 'hover:bg-slate-800 text-slate-300'}`}
             >
               <Calendar className="w-4 h-4 shrink-0" />
               <span className="whitespace-nowrap flex items-center justify-between w-full">
@@ -850,11 +852,13 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                     {orderedAdminTours.map((t) => (
                       <div key={t.id} className="p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-4 w-full sm:w-auto">
-                          <img 
-                            src={t.image} 
-                            alt={t.title} 
-                            className="w-16 h-16 rounded-xl object-cover shrink-0 border border-gray-100 shadow-inner" 
+                          <img
+                            src={t.image}
+                            alt={t.title}
+                            className="w-16 h-16 rounded-xl object-cover shrink-0 border border-gray-100 shadow-inner"
                             referrerPolicy="no-referrer"
+                            loading="lazy"
+                            decoding="async"
                           />
                           <div className="text-left">
                             <h5 className="font-bold text-slate-950 text-sm leading-snug">{t.title}</h5>
@@ -979,6 +983,8 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                             src={form.image || g.image}
                             alt={form.title || g.title}
                             referrerPolicy="no-referrer"
+                            loading="lazy"
+                            decoding="async"
                             className="w-28 h-28 rounded-2xl object-cover border border-gray-100 shadow-inner shrink-0"
                           />
                           <div className="flex-1 space-y-3">
@@ -1189,7 +1195,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                     {offers.map((o) => (
                       <div key={o.id} className="p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-4 w-full sm:w-auto">
-                          <img src={o.image} alt={o.title} className="w-16 h-16 rounded-xl object-cover shrink-0 border border-gray-100 shadow-inner" referrerPolicy="no-referrer" />
+                          <img src={o.image} alt={o.title} className="w-16 h-16 rounded-xl object-cover shrink-0 border border-gray-100 shadow-inner" referrerPolicy="no-referrer" loading="lazy" decoding="async" />
                           <div className="text-left">
                             <h5 className="font-bold text-slate-950 text-sm leading-snug">{o.title}</h5>
                             <div className="flex flex-wrap gap-2.5 mt-1 text-xs items-center">
@@ -1462,7 +1468,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                               {/* Trip header */}
                               <div className="px-5 py-4 bg-slate-50 border-b border-gray-100 flex items-center gap-4">
                                 {trip?.image && (
-                                  <img src={trip.image} alt={sample.tripTitle} className="w-14 h-14 rounded-xl object-cover border border-gray-200 shrink-0" referrerPolicy="no-referrer" />
+                                  <img src={trip.image} alt={sample.tripTitle} className="w-14 h-14 rounded-xl object-cover border border-gray-200 shrink-0" referrerPolicy="no-referrer" loading="lazy" decoding="async" />
                                 )}
                                 <div className="min-w-0 flex-1">
                                   <h4 className="font-bold text-sm text-slate-900 truncate">{sample.tripTitle}</h4>
@@ -1676,7 +1682,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                       {img.type === 'video' ? (
                         <video src={img.url} className="w-full h-40 object-cover border-b border-gray-100 bg-black" controls muted />
                       ) : (
-                        <img src={img.url} alt={img.name} className="w-full h-40 object-cover border-b border-gray-100 bg-gray-50" referrerPolicy="no-referrer" />
+                        <img src={img.url} alt={img.name} className="w-full h-40 object-cover border-b border-gray-100 bg-gray-50" referrerPolicy="no-referrer" loading="lazy" decoding="async" />
                       )}
                       
                       <div className="p-3 text-left flex-1 flex flex-col justify-between">
