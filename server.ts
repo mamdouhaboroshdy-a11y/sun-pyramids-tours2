@@ -102,6 +102,7 @@ async function startServer() {
       );
       ALTER TABLE tours ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb;
       ALTER TABLE tours ADD COLUMN IF NOT EXISTS videos JSONB NOT NULL DEFAULT '[]'::jsonb;
+      ALTER TABLE tours ADD COLUMN IF NOT EXISTS is_online BOOLEAN NOT NULL DEFAULT TRUE;
       CREATE TABLE IF NOT EXISTS special_offers (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
@@ -465,9 +466,9 @@ async function startServer() {
   // -----------------------------------------------------------------
   const buildFallbackTours = () => {
     const fallbackList: any[] = [];
-    EASTER_TOURS.forEach(t => fallbackList.push({ ...t, images: [t.image], videos: [], isEasterSpecial: true, isPopular: false, description: '' }));
+    EASTER_TOURS.forEach(t => fallbackList.push({ ...t, images: [t.image], videos: [], isEasterSpecial: true, isPopular: false, description: '', isOnline: true }));
     Object.entries(CATEGORIZED_TOURS).forEach(([catKey, items]) => {
-      items.forEach(t => fallbackList.push({ ...t, images: [t.image], videos: [], category: catKey, isEasterSpecial: false, isPopular: catKey === 'recommended', description: '' }));
+      items.forEach(t => fallbackList.push({ ...t, images: [t.image], videos: [], category: catKey, isEasterSpecial: false, isPopular: catKey === 'recommended', description: '', isOnline: true }));
     });
     return fallbackList;
   };
@@ -495,7 +496,8 @@ async function startServer() {
             description: tour.description || '',
             category: tour.category || 'recommended',
             isEasterSpecial: tour.isEasterSpecial || false,
-            isPopular: tour.isPopular || false
+            isPopular: tour.isPopular || false,
+            isOnline: tour.isOnline !== false
           }).onConflictDoNothing();
         }
         return res.json(fallbackList);
@@ -528,7 +530,9 @@ async function startServer() {
       description: payload.description || '',
       category: payload.category || 'recommended',
       isEasterSpecial: !!payload.isEasterSpecial,
-      isPopular: !!payload.isPopular
+      isPopular: !!payload.isPopular,
+      // Online by default; only an explicit false hides the tour from customers.
+      isOnline: payload.isOnline !== false
     };
   };
 

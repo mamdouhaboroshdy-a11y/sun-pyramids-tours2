@@ -12,11 +12,14 @@ export default function EasterTours({ onBook }: EasterToursProps) {
   const { tours } = useDb();
   const { t: tr } = useLanguage();
 
+  // Offline tours are hidden from customers everywhere on the public site
+  const onlineTours = tours.filter(t => t.isOnline !== false);
+
   // Filter tours where isEasterSpecial is true
-  const easterToursFiltered = tours.filter(t => t.isEasterSpecial);
-  
+  const easterToursFiltered = onlineTours.filter(t => t.isEasterSpecial);
+
   // If no tour is explicitly marked, fallback to first 4 as demo
-  const displayTours = easterToursFiltered.length > 0 ? easterToursFiltered : tours.slice(0, 4);
+  const displayTours = easterToursFiltered.length > 0 ? easterToursFiltered : onlineTours.slice(0, 4);
 
   return (
     <section id="easter-tours" className="py-16 sm:py-24 bg-gray-50/40 relative font-sans">

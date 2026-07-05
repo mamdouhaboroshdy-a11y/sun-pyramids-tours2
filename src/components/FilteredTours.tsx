@@ -38,8 +38,8 @@ export default function FilteredTours({ onBook }: FilteredToursProps) {
     setVisibleCount(8);
   };
 
-  // Filter tours matching current category slug (or id)
-  const currentToursList = tours.filter(t => t.category === activeTab);
+  // Filter tours matching current category slug (or id); offline tours are admin-only
+  const currentToursList = tours.filter(t => t.category === activeTab && t.isOnline !== false);
   const displayedTours = currentToursList.slice(0, visibleCount);
 
   const loadMore = () => {

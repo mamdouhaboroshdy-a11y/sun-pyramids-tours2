@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  X, ShieldCheck, Compass, DollarSign, Calendar, Users, 
+  X, ShieldCheck, Compass, DollarSign, Calendar, Users,
   Image, FileText, Settings, Plus, Edit2, Trash2, Check,
-  AlertTriangle, Play, RefreshCw, Key, ChevronDown, UserCheck, Eye, LogOut
+  AlertTriangle, Play, RefreshCw, Key, ChevronDown, UserCheck, Eye, EyeOff, LogOut
 } from 'lucide-react';
 import { useDb, CategoryModel, TourModel, BookingModel, MediaModel, SpecialOffer, SettingModel } from '../context/DbContext';
 import { useAuth, UserRole } from '../context/AuthContext';
@@ -133,7 +133,9 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
         tags: Array.isArray(tourForm.tags) ? tourForm.tags : (tourForm.tags as string || '').split(',').map(s => s.trim()).filter(Boolean),
         isEasterSpecial: !!tourForm.isEasterSpecial,
         isPopular: !!tourForm.isPopular,
-        description: tourForm.description || ''
+        description: tourForm.description || '',
+        // Preserve visibility when editing; new tours start online
+        isOnline: tourForm.isOnline !== false
       };
 
       if (editingTourId) {
@@ -155,6 +157,22 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
   const handleTourEdit = (tour: TourModel) => {
     setEditingTourId(tour.id);
     setTourForm(tour);
+  };
+
+  const handleTourToggleOnline = async (tour: TourModel) => {
+    if (!isEditorOrHigher) {
+      showToast('error', 'You do not have editor permissions to perform this operation.');
+      return;
+    }
+    const goingOnline = tour.isOnline === false;
+    try {
+      await updateTour(tour.id, { ...tour, isOnline: goingOnline });
+      showToast('success', goingOnline
+        ? 'Tour is back ONLINE — customers can see and book it again.'
+        : 'Tour is now OFFLINE — hidden from customers until you re-enable it.');
+    } catch (e: any) {
+      showToast('error', e.message);
+    }
   };
 
   const handleTourDelete = async (id: string) => {
@@ -747,13 +765,25 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                               <span className="text-gray-400 font-medium">⏱️ {t.duration}</span>
                               {t.isEasterSpecial && <span className="bg-emerald-100 text-emerald-800 font-extrabold px-2 py-0.5 rounded-md text-[9.5px]">🌸 Spring Special</span>}
                               {t.isPopular && <span className="bg-orange-100 text-orange-800 font-extrabold px-2 py-0.5 rounded-md text-[9.5px]">🔥 Recommended Choice</span>}
+                              {t.isOnline === false
+                                ? <span className="bg-gray-200 text-gray-600 font-extrabold px-2 py-0.5 rounded-md text-[9.5px]">🚫 Offline — hidden from customers</span>
+                                : <span className="bg-green-100 text-green-700 font-extrabold px-2 py-0.5 rounded-md text-[9.5px]">🟢 Online</span>}
                             </div>
                           </div>
                         </div>
 
                         {isEditorOrHigher && (
                           <div className="flex items-center gap-2">
-                            <button 
+                            <button
+                              onClick={() => handleTourToggleOnline(t)}
+                              className={`p-2 border rounded-full transition cursor-pointer ${t.isOnline === false
+                                ? 'border-gray-300 bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                : 'border-green-200 text-green-600 hover:bg-green-50'}`}
+                              title={t.isOnline === false ? 'Bring tour back online (visible to customers)' : 'Take tour offline (hide from customers)'}
+                            >
+                              {t.isOnline === false ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                            <button
                               onClick={() => handleTourEdit(t)}
                               className="p-2 border border-amber-200 rounded-full hover:bg-amber-50 text-amber-600 transition cursor-pointer"
                               title="Edit package specifications"
