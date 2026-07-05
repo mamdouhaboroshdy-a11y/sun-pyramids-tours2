@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
 import { createServer as createViteServer } from 'vite';
-import { sql, eq, desc } from 'drizzle-orm';
+import { sql, eq, desc, asc } from 'drizzle-orm';
 import { db, client } from './src/db/db';
 import * as schema from './src/db/schema';
 
@@ -103,6 +103,7 @@ async function startServer() {
       ALTER TABLE tours ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb;
       ALTER TABLE tours ADD COLUMN IF NOT EXISTS videos JSONB NOT NULL DEFAULT '[]'::jsonb;
       ALTER TABLE tours ADD COLUMN IF NOT EXISTS is_online BOOLEAN NOT NULL DEFAULT TRUE;
+      ALTER TABLE tours ADD COLUMN IF NOT EXISTS sort_order DOUBLE PRECISION;
       CREATE TABLE IF NOT EXISTS special_offers (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
@@ -470,8 +471,39 @@ async function startServer() {
     Object.entries(CATEGORIZED_TOURS).forEach(([catKey, items]) => {
       items.forEach(t => fallbackList.push({ ...t, images: [t.image], videos: [], category: catKey, isEasterSpecial: false, isPopular: catKey === 'recommended', description: '', isOnline: true }));
     });
+    fallbackList.forEach((t, i) => { t.sortOrder = i + 1; });
     return fallbackList;
   };
+
+  // One-time backfill: rows created before sort_order existed get a stable
+  // position (original seed order first, then everything else by id) so that
+  // toggling a tour online/offline never reshuffles the homepage grid.
+  const backfillTourSortOrder = async () => {
+    if (!isPostgresConfigured()) return;
+    try {
+      const rows = await db.select({ id: schema.tours.id, sortOrder: schema.tours.sortOrder }).from(schema.tours);
+      const missing = rows.filter(r => r.sortOrder == null);
+      if (missing.length === 0) return;
+      const seedOrder = buildFallbackTours().map(t => t.id);
+      missing.sort((a, b) => {
+        const ia = seedOrder.indexOf(a.id);
+        const ib = seedOrder.indexOf(b.id);
+        if (ia !== -1 && ib !== -1) return ia - ib;
+        if (ia !== -1) return -1;
+        if (ib !== -1) return 1;
+        return a.id.localeCompare(b.id);
+      });
+      let next = Math.max(0, ...rows.map(r => r.sortOrder ?? 0));
+      for (const row of missing) {
+        next += 1;
+        await db.update(schema.tours).set({ sortOrder: next }).where(eq(schema.tours.id, row.id));
+      }
+      console.log(`[SCHEMA] Backfilled sort_order for ${missing.length} tours.`);
+    } catch (e) {
+      console.error('[SCHEMA] sort_order backfill failed:', e);
+    }
+  };
+  await backfillTourSortOrder();
 
   app.get('/api/tours', async (req, res) => {
     try {
@@ -479,7 +511,9 @@ async function startServer() {
       if (!isPostgresConfigured()) {
         return res.json(fallbackList);
       }
-      const list = await db.select().from(schema.tours);
+      // Stable order: without an explicit ORDER BY, Postgres moves updated rows
+      // to the end of the result, shuffling the grid every time a tour is toggled.
+      const list = await db.select().from(schema.tours).orderBy(asc(schema.tours.sortOrder), asc(schema.tours.id));
       if (list.length === 0) {
         for (const tour of fallbackList) {
           await db.insert(schema.tours).values({
@@ -497,7 +531,8 @@ async function startServer() {
             category: tour.category || 'recommended',
             isEasterSpecial: tour.isEasterSpecial || false,
             isPopular: tour.isPopular || false,
-            isOnline: tour.isOnline !== false
+            isOnline: tour.isOnline !== false,
+            sortOrder: tour.sortOrder ?? null
           }).onConflictDoNothing();
         }
         return res.json(fallbackList);
@@ -516,7 +551,7 @@ async function startServer() {
     const images = toUrlArray(payload.images);
     if (images.length === 0 && payload.image) images.push(payload.image);
     const primary = images[0] || '';
-    return {
+    const values: any = {
       id,
       title: payload.title,
       image: primary,
@@ -534,6 +569,11 @@ async function startServer() {
       // Online by default; only an explicit false hides the tour from customers.
       isOnline: payload.isOnline !== false
     };
+    // Keep the tour's grid position when the client sends it; omitting the key
+    // on updates leaves the stored sort_order untouched.
+    const sortOrder = Number(payload.sortOrder);
+    if (Number.isFinite(sortOrder)) values.sortOrder = sortOrder;
+    return values;
   };
 
   app.post('/api/tours', async (req, res) => {
@@ -541,6 +581,8 @@ async function startServer() {
       const payload = req.body;
       const id = payload.id || `tour_${Date.now()}`;
       const values = tourValuesFromPayload(payload, id);
+      // New tours go to the end of the grid.
+      if (values.sortOrder === undefined) values.sortOrder = Date.now();
       if (isPostgresConfigured()) {
         const { id: _omit, ...rest } = values;
         const result = await db.insert(schema.tours).values(values)

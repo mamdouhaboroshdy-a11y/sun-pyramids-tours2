@@ -25,6 +25,7 @@ export const tours = pgTable('tours', {
   isEasterSpecial: boolean('is_easter_special').default(false).notNull(),
   isPopular: boolean('is_popular').default(false).notNull(),
   isOnline: boolean('is_online').default(true).notNull(), // false = hidden from customers (admin can toggle)
+  sortOrder: doublePrecision('sort_order'), // stable display position; NULL rows are backfilled on startup
 });
 
 // 3. Special Offers Table
