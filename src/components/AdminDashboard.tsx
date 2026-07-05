@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   X, ShieldCheck, Compass, DollarSign, Calendar, Users,
   Image, FileText, Settings, Plus, Edit2, Trash2, Check,
-  AlertTriangle, Play, RefreshCw, Key, ChevronDown, UserCheck, Eye, EyeOff, LogOut
+  AlertTriangle, Play, RefreshCw, Key, ChevronDown, ChevronUp, ChevronsUp, UserCheck, Eye, EyeOff, LogOut
 } from 'lucide-react';
 import { useDb, CategoryModel, TourModel, BookingModel, MediaModel, SpecialOffer, SettingModel, GalleryItemModel } from '../context/DbContext';
 import { useAuth, UserRole } from '../context/AuthContext';
@@ -23,7 +23,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
     galleryItems, updateGalleryItem,
     seedDatabase, isDbEmpty, dbLoaded,
     addCategory, updateCategory, deleteCategory,
-    addTour, updateTour, deleteTour,
+    addTour, updateTour, deleteTour, moveTour, moveTourToCategory,
     addOffer, updateOffer, deleteOffer,
     updateBookingStatus, deleteBooking,
     deleteRegistration,
@@ -113,6 +113,15 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
   const isSuperAdmin = profile?.role === 'super_admin';
   const isAdminOrSuper = profile?.role === 'super_admin' || profile?.role === 'admin';
   const isEditorOrHigher = profile?.role === 'super_admin' || profile?.role === 'admin' || profile?.role === 'editor';
+
+  // Admin tours list grouped by section (in category order) then by display
+  // position, so the reorder arrows match exactly what customers see on site.
+  const orderedAdminTours = [...tours].sort((a, b) => {
+    const ca = categories.findIndex(c => c.slug === a.category);
+    const cb = categories.findIndex(c => c.slug === b.category);
+    if (ca !== cb) return ca - cb;
+    return (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER);
+  });
 
   // Handler Actions
   const handleSeed = async () => {
@@ -228,6 +237,32 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
       showToast('error', e.message);
     } finally {
       setGalleryUploadingId(null);
+    }
+  };
+
+  const handleTourMove = async (id: string, direction: 'up' | 'down' | 'top') => {
+    if (!isEditorOrHigher) {
+      showToast('error', 'You do not have editor permissions to perform this operation.');
+      return;
+    }
+    try {
+      await moveTour(id, direction);
+    } catch (e: any) {
+      showToast('error', e.message);
+    }
+  };
+
+  const handleTourMoveCategory = async (tour: TourModel, slug: string) => {
+    if (!isEditorOrHigher) {
+      showToast('error', 'You do not have editor permissions to perform this operation.');
+      return;
+    }
+    try {
+      await moveTourToCategory(tour.id, slug);
+      const target = categories.find(c => c.slug === slug);
+      showToast('success', `Tour moved to the "${target?.name || slug}" section.`);
+    } catch (e: any) {
+      showToast('error', e.message);
     }
   };
 
@@ -812,7 +847,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                 <div className="bg-white rounded-3xl border border-gray-200 shadow-xs overflow-hidden">
                   <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 font-bold text-sm text-slate-800">Published Travel Catalogs ({tours.length})</div>
                   <div className="divide-y divide-gray-100">
-                    {tours.map((t) => (
+                    {orderedAdminTours.map((t) => (
                       <div key={t.id} className="p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-4 w-full sm:w-auto">
                           <img 
@@ -837,7 +872,40 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                         </div>
 
                         {isEditorOrHigher && (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap justify-end">
+                            <select
+                              value={t.category || ''}
+                              onChange={(e) => handleTourMoveCategory(t, e.target.value)}
+                              title="Move this tour to another section"
+                              className="text-[11px] font-semibold border border-gray-200 bg-white rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer max-w-[130px]"
+                            >
+                              {categories.map(c => (
+                                <option key={c.id} value={c.slug}>{c.name}</option>
+                              ))}
+                            </select>
+                            <div className="flex items-center border border-gray-200 rounded-full overflow-hidden bg-white">
+                              <button
+                                onClick={() => handleTourMove(t.id, 'top')}
+                                className="p-2 hover:bg-blue-50 text-[#123da5] transition cursor-pointer"
+                                title="Move to the top of its section"
+                              >
+                                <ChevronsUp className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleTourMove(t.id, 'up')}
+                                className="p-2 hover:bg-blue-50 text-slate-600 transition cursor-pointer border-l border-gray-100"
+                                title="Move one step up"
+                              >
+                                <ChevronUp className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleTourMove(t.id, 'down')}
+                                className="p-2 hover:bg-blue-50 text-slate-600 transition cursor-pointer border-l border-gray-100"
+                                title="Move one step down"
+                              >
+                                <ChevronDown className="w-4 h-4" />
+                              </button>
+                            </div>
                             <button
                               onClick={() => handleTourToggleOnline(t)}
                               className={`p-2 border rounded-full transition cursor-pointer ${t.isOnline === false

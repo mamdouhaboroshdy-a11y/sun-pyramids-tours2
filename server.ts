@@ -620,6 +620,28 @@ async function startServer() {
     }
   });
 
+  // Partial update — used by the admin reorder / move-to-section controls so we
+  // never rewrite the whole tour (and can't clobber fields edited elsewhere).
+  app.patch('/api/tours/:id', async (req, res) => {
+    try {
+      const set: any = {};
+      const so = Number(req.body?.sortOrder);
+      if (Number.isFinite(so)) set.sortOrder = so;
+      if (typeof req.body?.category === 'string' && req.body.category.trim()) set.category = req.body.category.trim();
+      if (typeof req.body?.isOnline === 'boolean') set.isOnline = req.body.isOnline;
+      if (Object.keys(set).length === 0) {
+        return res.status(400).json({ error: 'No supported fields in patch payload.' });
+      }
+      if (isPostgresConfigured()) {
+        const result = await db.update(schema.tours).set(set).where(eq(schema.tours.id, req.params.id)).returning();
+        return res.json(result[0] || {});
+      }
+      res.json({ id: req.params.id, ...set });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.delete('/api/tours/:id', async (req, res) => {
     try {
       if (isPostgresConfigured()) {

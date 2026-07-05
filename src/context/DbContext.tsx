@@ -121,6 +121,8 @@ interface DbContextType {
   addTour: (tour: Omit<TourModel, 'id'>) => Promise<void>;
   updateTour: (id: string, tour: Partial<TourModel>) => Promise<void>;
   deleteTour: (id: string) => Promise<void>;
+  moveTour: (id: string, direction: 'up' | 'down' | 'top') => Promise<void>;
+  moveTourToCategory: (id: string, category: string) => Promise<void>;
 
   // Offer CRUD
   addOffer: (offer: Omit<SpecialOffer, 'id'>) => Promise<void>;
@@ -327,6 +329,47 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
     await fetchPublic();
   };
 
+  // Reorder a tour inside its own section. We rearrange the section's tours,
+  // then remap the SAME set of sort_order values onto the new arrangement —
+  // so the section order changes while global interleaving stays intact.
+  const moveTour = async (id: string, direction: 'up' | 'down' | 'top') => {
+    const tour = tours.find(t => t.id === id);
+    if (!tour) return;
+    const siblings = tours.filter(t => t.category === tour.category); // `tours` is already sorted
+    const idx = siblings.findIndex(t => t.id === id);
+    const newIdx = direction === 'top' ? 0 : direction === 'up' ? idx - 1 : idx + 1;
+    if (idx < 0 || newIdx < 0 || newIdx >= siblings.length || newIdx === idx) return;
+
+    // Collect stable slot values (fill any missing sort_order after the max).
+    let maxSeen = 0;
+    siblings.forEach(t => { if (typeof t.sortOrder === 'number' && t.sortOrder > maxSeen) maxSeen = t.sortOrder; });
+    const slotValues = siblings
+      .map(t => (typeof t.sortOrder === 'number' ? t.sortOrder : ++maxSeen))
+      .sort((a, b) => a - b);
+
+    const arranged = [...siblings];
+    arranged.splice(idx, 1);
+    arranged.splice(newIdx, 0, tour);
+
+    await Promise.all(arranged.map((t, i) =>
+      t.sortOrder === slotValues[i] ? Promise.resolve(null) : apiPatch(`/tours/${t.id}`, { sortOrder: slotValues[i] })
+    ));
+    await logAdminAction('Reorder Tour', `Moved tour ${tour.title} ${direction === 'top' ? 'to the top of' : direction} its section`);
+    await fetchPublic();
+  };
+
+  // Move a tour to a different section (category); it is appended at the end
+  // of the destination section so it never displaces existing ordering there.
+  const moveTourToCategory = async (id: string, category: string) => {
+    const tour = tours.find(t => t.id === id);
+    if (!tour || tour.category === category) return;
+    let maxSort = 0;
+    tours.forEach(t => { if (typeof t.sortOrder === 'number' && t.sortOrder > maxSort) maxSort = t.sortOrder; });
+    await apiPatch(`/tours/${id}`, { category, sortOrder: maxSort + 1 });
+    await logAdminAction('Move Tour Section', `Moved tour ${tour.title} to section: ${category}`);
+    await fetchPublic();
+  };
+
   // --- Offer CRUD ---------------------------------------------------
   const addOffer = async (offer: Omit<SpecialOffer, 'id'>) => {
     await apiPost('/offers', offer);
@@ -441,6 +484,8 @@ export function DbProvider({ children }: { children: React.ReactNode }) {
       addTour,
       updateTour,
       deleteTour,
+      moveTour,
+      moveTourToCategory,
       addOffer,
       updateOffer,
       deleteOffer,
