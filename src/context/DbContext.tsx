@@ -160,7 +160,7 @@ interface DbContextType {
 const DbContext = createContext<DbContextType | undefined>(undefined);
 
 const DEFAULT_SETTINGS: SettingModel = {
-  siteName: 'Sun Pyramids Tours',
+  siteName: 'EAGLE TRIPS',
   phone: '+20 123 456 7890',
   email: 'info@sunpyramidstours.com',
   whatsapp: '201207300811',

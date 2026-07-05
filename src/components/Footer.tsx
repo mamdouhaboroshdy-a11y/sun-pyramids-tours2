@@ -72,7 +72,7 @@ export default function Footer() {
               
               <div className="flex flex-col">
                 <span className="text-base sm:text-lg font-black tracking-widest italic text-[#38bdf8] uppercase">
-                  SUN PYRAMIDS
+                  EAGLE TRIPS
                 </span>
                 <span className="text-[8px] uppercase tracking-wider font-black text-teal-400">
                   SINCE <span className="text-[#f08c1c]">TOURS</span> <span className="text-sky-400">1970</span>

@@ -544,7 +544,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-lg font-bold tracking-tight">Sun Pyramids Comprehensive Dashboard</h2>
+              <h2 className="text-lg font-bold tracking-tight">Eagle Trips Comprehensive Dashboard</h2>
               <div className="flex items-center gap-2 text-xs text-amber-300 mt-0.5">
                 <span>Active Administrator: {profile?.name}</span>
                 <span>•</span>

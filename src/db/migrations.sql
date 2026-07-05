@@ -129,5 +129,5 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Seed Settings Default
 INSERT INTO settings (key, site_name, phone, email, whatsapp, location, facebook, instagram, promo_banner_text) VALUES
-('general', 'Sun Pyramids Tours', '+20 123 456 7890', 'info@sunpyramidstours.com', '201207300811', 'Giza, Pyramids Street, Egypt', 'https://facebook.com/sunpyramids', 'https://instagram.com/sunpyramids', 'Book any tour and get another day excursion completely free of charge!')
+('general', 'EAGLE TRIPS', '+20 123 456 7890', 'info@sunpyramidstours.com', '201207300811', 'Giza, Pyramids Street, Egypt', 'https://facebook.com/sunpyramids', 'https://instagram.com/sunpyramids', 'Book any tour and get another day excursion completely free of charge!')
 ON CONFLICT (key) DO NOTHING;
