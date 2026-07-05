@@ -337,6 +337,43 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
     setOfferForm(offer);
   };
 
+  // Copy a special deal into the tours catalog so it also appears (and can be
+  // reordered / sectioned) like any regular tour.
+  const handleAddOfferAsTour = async (offer: SpecialOffer) => {
+    if (!isEditorOrHigher) {
+      showToast('error', 'You do not have editor permissions to perform this operation.');
+      return;
+    }
+    if (tours.some(t => t.title.trim().toLowerCase() === offer.title.trim().toLowerCase())) {
+      showToast('error', 'A tour with this exact title already exists in the tours catalog.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await addTour({
+        title: offer.title,
+        image: offer.image,
+        images: offer.images && offer.images.length > 0 ? offer.images : [offer.image],
+        videos: offer.videos || [],
+        cities: offer.cities,
+        location: offer.location,
+        tags: offer.tags || [],
+        duration: offer.duration,
+        price: offer.price,
+        description: '',
+        category: 'recommended',
+        isEasterSpecial: false,
+        isPopular: false,
+        isOnline: true
+      });
+      showToast('success', `"${offer.title}" was added to the tours catalog (Recommended section). Use the section dropdown to move it anywhere.`);
+    } catch (e: any) {
+      showToast('error', e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleOfferDelete = async (id: string) => {
     if (!isEditorOrHigher) return;
     if (window.confirm('Delete this special offer?')) {
@@ -969,6 +1006,71 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                     )}
                   </div>
                 </div>
+
+                {/* Special Deals shown here too, so every trip on the system is
+                    visible and controllable from this single page. */}
+                {offers.length > 0 && (
+                  <div className="bg-white rounded-3xl border border-gray-200 shadow-xs overflow-hidden">
+                    <div className="px-6 py-4 bg-amber-50 border-b border-amber-100 text-sm text-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                      <span className="font-bold">💰 Special Deals — Promotional Trips ({offers.length})</span>
+                      <span className="text-[10.5px] text-amber-700 font-semibold">These live in the Special Deals tab · listed here so no trip is ever out of sight</span>
+                    </div>
+                    <div className="divide-y divide-gray-100">
+                      {offers.map((o, oIdx) => (
+                        <div key={o.id} className="p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                          <div className="flex items-center gap-4 w-full sm:w-auto">
+                            <span className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 text-[10.5px] font-black flex items-center justify-center shrink-0">
+                              {oIdx + 1}
+                            </span>
+                            <img
+                              src={o.image}
+                              alt={o.title}
+                              className="w-16 h-16 rounded-xl object-cover shrink-0 border border-gray-100 shadow-inner"
+                              referrerPolicy="no-referrer"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                            <div className="text-left">
+                              <h5 className="font-bold text-slate-950 text-sm leading-snug">{o.title}</h5>
+                              <div className="flex flex-wrap gap-2 items-center mt-1 text-xs">
+                                <span className="bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-md text-[10.5px]">💰 ${o.price} <s className="text-emerald-600/60">${o.originalPrice}</s></span>
+                                <span className="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-md text-[10.5px]">🏷 {o.badge}</span>
+                                <span className="text-gray-400 font-medium">⏱️ {o.duration}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {isEditorOrHigher && (
+                            <div className="flex items-center gap-2 flex-wrap justify-end">
+                              <button
+                                onClick={() => handleAddOfferAsTour(o)}
+                                disabled={loading}
+                                className="px-3 py-2 text-[11px] font-bold border border-emerald-200 text-emerald-700 rounded-full hover:bg-emerald-50 disabled:opacity-50 transition cursor-pointer"
+                                title="Create a copy of this deal inside the tours catalog"
+                              >
+                                ➕ Add to Tours
+                              </button>
+                              <button
+                                onClick={() => { handleOfferEdit(o); setActiveTab('offers'); }}
+                                className="p-2 border border-amber-200 rounded-full hover:bg-amber-50 text-amber-600 transition cursor-pointer"
+                                title="Edit this deal (opens the Special Deals tab)"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleOfferDelete(o.id)}
+                                className="p-2 border border-red-200 rounded-full hover:bg-red-50 text-red-600 transition cursor-pointer"
+                                title="Delete this deal"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
