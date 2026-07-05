@@ -18,6 +18,7 @@ export interface TourModel extends TourPackage {
   category?: string;
   isEasterSpecial?: boolean;
   isPopular?: boolean;
+  isOnline?: boolean; // false = hidden from customers; undefined/true = visible
 }
 
 export interface BookingModel {
